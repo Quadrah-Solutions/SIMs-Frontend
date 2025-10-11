@@ -8,7 +8,7 @@ export default function StudentProfile  () {
     ];
 
     return (
-        <Card title={`Student Profile: Kwesi Arthur`} className="space-y-6">
+        <Card title={`Student Profile: Kwesi sasu `} className="space-y-6">
             <button 
                 className="text-sm text-emerald-600 hover:underline mb-4 block"
             >
