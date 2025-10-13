@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 
 export default function Login() {
-  // Renamed state variables for clarity
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const { login, loading } = useAuth();
   const nav = useNavigate();
@@ -14,19 +15,20 @@ export default function Login() {
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
-    setErrorMessage(""); // Clear previous errors
-    
-    // Use the renamed state variables in the login call
+    setErrorMessage("");
+
     const res = await login(username, password);
 
     if (res.ok) {
-      // Navigate to the intended destination or root
       const dest = loc.state?.from?.pathname || "/";
       nav(dest, { replace: true });
     } else {
-      // Set the error message, providing a fallback
       setErrorMessage(res.message || "Login failed");
     }
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
 
   return (
@@ -40,8 +42,7 @@ export default function Login() {
               Please enter your details to sign in.
             </p>
             <form onSubmit={handleLoginSubmit} className="mt-8 space-y-6">
-              
-              {/* Username/Email Input */}
+              {/* Username Input */}
               <div>
                 <label
                   htmlFor="username"
@@ -53,20 +54,18 @@ export default function Login() {
                   <input
                     id="username"
                     name="username"
-                    type="text" // Changed from email to text for generic username/ID
+                    type="text"
                     autoComplete="username"
                     required
                     value={username}
-                    // Use the renamed state setter
                     onChange={(e) => setUsername(e.target.value)}
-                    // Updated focus classes to a deep gray (gray-700)
                     className="block w-full px-4 py-3 border border-gray-300 rounded-md placeholder-gray-400 sm:text-sm focus:ring-gray-700 focus:border-gray-700 focus:outline-none"
                     placeholder="Enter your username"
                   />
                 </div>
               </div>
 
-              {/* Password Input */}
+              {/* Password Input (with Toggle) */}
               <div>
                 <label
                   htmlFor="password"
@@ -74,20 +73,34 @@ export default function Login() {
                 >
                   Password
                 </label>
-                <div className="mt-1">
+                <div className="mt-1 relative">
                   <input
                     id="password"
                     name="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     required
                     value={password}
-                    // Use the renamed state setter
                     onChange={(e) => setPassword(e.target.value)}
-                    // Updated focus classes to a deep gray (gray-700)
-                    className="block w-full px-4 py-3 placeholder-gray-400 border border-gray-300 rounded-md sm:text-sm focus:ring-gray-700 focus:border-gray-700 focus:outline-none"
+                    // pr-10 ensures space for the icon
+                    className="block w-full pr-10 px-4 py-3 placeholder-gray-400 border border-gray-300 rounded-md sm:text-sm focus:ring-gray-700 focus:border-gray-700 focus:outline-none"
                     placeholder="Enter your password"
                   />
+                  {/* The Eye Icon Button */}
+                  <button
+                    type="button"
+                    onClick={togglePasswordVisibility}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3"
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showPassword ? (
+                      <FiEyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    ) : (
+                      <FiEye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -98,7 +111,7 @@ export default function Login() {
                 </div>
               )}
 
-              {/* Forgot Password Link (Retained for style consistency) */}
+              {/* Forgot Password Link */}
               <div className="flex items-center justify-end">
                 <div className="text-sm">
                   <a
@@ -114,10 +127,10 @@ export default function Login() {
               <div>
                 <button
                   type="submit"
-                  disabled={loading} // Disable button when loading
+                  disabled={loading}
                   className={`flex justify-center w-full px-4 py-3 text-sm font-semibold text-white border border-transparent rounded-md shadow-sm transition-colors ${
                     loading
-                      ? "bg-gray-400 cursor-not-allowed" // Loading/Disabled state
+                      ? "bg-gray-400 cursor-not-allowed"
                       : "bg-gray-700 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-700"
                   }`}
                 >
@@ -129,7 +142,8 @@ export default function Login() {
             {/* Credentials Hint / Footer */}
             <div className="mt-6 text-center border-t pt-4">
               <p className="text-xs text-gray-500 mt-2">
-                Try username: <b>nurse</b> / pass: <b>1234</b> or <b>admin</b>/<b>admin</b>
+                Try username: <b>nurse</b> / pass: <b>1234</b> or <b>admin</b>/
+                <b>admin</b>
               </p>
               <p className="mt-4 text-sm text-gray-600">
                 Don't have an account?{" "}
