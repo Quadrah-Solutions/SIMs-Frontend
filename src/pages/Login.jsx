@@ -131,7 +131,7 @@ export default function Login() {
                   className={`flex justify-center w-full px-4 py-3 text-sm font-semibold text-white border border-transparent rounded-md shadow-sm transition-colors ${
                     loading
                       ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-gray-700 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-700"
+                      : "bg-gray-700 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-700 cursor-pointer"
                   }`}
                 >
                   {loading ? "Please wait..." : "Login"}
