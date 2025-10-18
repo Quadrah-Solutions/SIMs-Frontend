@@ -46,7 +46,7 @@ function Sidebar({ currentPath, collapsed, toggleSidebar }) {
       <div className="flex items-center p-4 h-16 border-b border-gray-100/80">
         {!collapsed && (
           <div className="flex flex-col flex-grow">
-            <div className="font-extrabold text-2xl text-gray-900 leading-none">SIMS</div>
+            <div className="font-extrabold text-2xl text-gray-900 leading-none">SYTE</div>
             <div className="text-xs text-gray-500 mt-1">Infirmary Management System</div>
           </div>
         )}
@@ -81,7 +81,7 @@ function Sidebar({ currentPath, collapsed, toggleSidebar }) {
               overflow-hidden
               group
               ${currentPath === item.path
-                ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg transform scale-[1.02]'
+                ? 'bg-gradient-to-r from-violet-500 to-violet-600 text-white shadow-lg transform scale-[1.02]'
                 : 'text-gray-600 bg-white/80 hover:bg-white hover:border-gray-200 hover:shadow-lg hover:transform hover:scale-[1.02]'}
               ${collapsed ? 'justify-center' : ''}
               
@@ -93,7 +93,7 @@ function Sidebar({ currentPath, collapsed, toggleSidebar }) {
           >
             {/* Active state overlay */}
             {currentPath === item.path && (
-              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-2xl" />
+              <div className="absolute inset-0 bg-gradient-to-r from-violet-500 to-violet-600 rounded-2xl" />
             )}
             
             {/* Content */}
@@ -115,7 +115,8 @@ function Sidebar({ currentPath, collapsed, toggleSidebar }) {
       {/* Sidebar Footer - Optional bottom area */}
       <div className="absolute bottom-4 left-4 right-4">
         <div className="text-xs text-gray-400 text-center">
-          {!collapsed && "Powered by Quadrah Solutions"}
+          {!collapsed && "Powered by "}
+          {!collapsed && <span className="font-bold text-violet-600">Quadrah Solutions</span>}
         </div>
       </div>
     </aside>
@@ -146,11 +147,21 @@ function Topbar({ isSidebarCollapsed = false }) {
         ${leftPositionClass} 
       `}
     >
-      <div className="flex items-center px-6">
-        <h1 className="text-xl font-semibold text-gray-800">
-          Dashboard
-        </h1>
+     <div className="flex items-center px-6">
+        <img 
+          src="/images/school-logo.png" 
+          alt="School Logo" 
+          className="h-12 w-12 object-cover rounded-lg" // Equal height and width
+        />
+        {/* Fallback if image doesn't load */}
+        <div 
+          className="hidden items-center justify-center h-12 w-12 bg-gradient-to-r from-blue-500 to-violet-500 rounded-lg"
+          style={{display: 'none'}}
+        >
+          <span className="text-white font-bold text-xs">SCHOOL</span>
+        </div>
       </div>
+
 
       <div className="flex items-center px-6 space-x-3">
         {/* Settings Button - Rounded Card with Hover */}
@@ -198,7 +209,7 @@ export default function AppShell() {
   const contentMarginClass = isSidebarCollapsed ? 'ml-28' : 'ml-72'; // Adjusted for card margins
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-emerald-50/30">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-violet-50/30">
       
       {/* Sidebar as Card */}
       <Sidebar 
@@ -222,7 +233,7 @@ export default function AppShell() {
         <main className="p-6 pt-24">
           <div className="rounded-3xl bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200/50 min-h-[calc(100vh-8rem)] overflow-hidden">
             {/* Subtle top gradient accent */}
-            <div className="h-1 bg-gradient-to-r from-emerald-400 to-blue-400"></div>
+            <div className="h-1 bg-gradient-to-r from-violet-400 to-blue-400"></div>
             <div className="p-6">
               <Outlet />
             </div>
