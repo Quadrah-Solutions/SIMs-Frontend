@@ -4,9 +4,9 @@ import useAuth from "../../hooks/useAuth";
 import {
   FiHome, FiUsers, FiCalendar, FiPlusSquare, FiDroplet, FiBarChart2, FiFileText,
   FiChevronsLeft, FiChevronsRight, FiLogOut, FiSettings, 
-} from 'react-icons/fi'; // Icons imported from parent scope for easy use
+} from 'react-icons/fi';
 
-// Define the navigation items (Moved outside for cleaner AppShell logic)
+// Define the navigation items
 const sidebarItems = [
   { path: "/", label: "Dashboard", icon: <FiHome /> },
   { path: "/students", label: "Students", icon: <FiUsers /> },
@@ -18,7 +18,7 @@ const sidebarItems = [
 ];
 
 // -------------------------------------------------------------------
-// 1. Sidebar Component (Updated to receive state/toggle as props)
+// 1. Sidebar Component (Entire sidebar as a rounded card)
 // -------------------------------------------------------------------
 function Sidebar({ currentPath, collapsed, toggleSidebar }) {
   const navigate = useNavigate();
@@ -27,15 +27,23 @@ function Sidebar({ currentPath, collapsed, toggleSidebar }) {
     <aside
       className={`
         bg-white text-gray-800
-        h-screen fixed top-0 left-0
+        h-[calc(100vh-2rem)] fixed top-4 left-4
         transition-all duration-300 ease-in-out
-        shadow-lg
+        shadow-2xl
         z-40
+        rounded-3xl
+        border border-gray-200/60
+        backdrop-blur-sm
+        overflow-hidden
         ${collapsed ? 'w-20' : 'w-64'} 
+        
+        // Subtle hover effect for the entire sidebar card
+        hover:shadow-2xl
+        transition-shadow duration-300
       `}
     >
-      {/* Sidebar Header (Logo and Toggle Button) */}
-      <div className="flex items-center p-4 h-16 border-b border-gray-200">
+      {/* Sidebar Header - Integrated into card design */}
+      <div className="flex items-center p-4 h-16 border-b border-gray-100/80">
         {!collapsed && (
           <div className="flex flex-col flex-grow">
             <div className="font-extrabold text-2xl text-gray-900 leading-none">SIMS</div>
@@ -43,11 +51,12 @@ function Sidebar({ currentPath, collapsed, toggleSidebar }) {
           </div>
         )}
         <button
-          onClick={toggleSidebar} // Use the prop function here!
+          onClick={toggleSidebar}
           className={`
-            p-2 rounded-full text-gray-500
-            hover:bg-gray-200 hover:text-gray-700
-            transition-colors duration-200
+            p-2 rounded-xl text-gray-500
+            bg-white border border-gray-200
+            hover:bg-gray-50 hover:text-gray-700 hover:shadow-md
+            transition-all duration-200
             ${collapsed ? 'mx-auto' : 'ml-auto'} 
           `}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -56,55 +65,84 @@ function Sidebar({ currentPath, collapsed, toggleSidebar }) {
         </button>
       </div>
 
-      {/* Navigation Links */}
-      <nav className="flex flex-col p-2 space-y-2 mt-4">
+      {/* Navigation Links - Enhanced rounded cards */}
+      <nav className="flex flex-col p-3 space-y-2 mt-4">
         {sidebarItems.map((item) => (
           <button
             key={item.path}
             type="button"
             onClick={() => navigate(item.path)}
             className={`
-              flex items-center px-3 py-2 rounded-lg
+              flex items-center px-4 py-3 rounded-2xl
               text-sm font-medium
-              transition-colors duration-200
+              transition-all duration-300 ease-out
+              border border-transparent
+              relative
+              overflow-hidden
+              group
               ${currentPath === item.path
-                ? 'bg-emerald-500 text-white shadow-md'
-                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}
+                ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg transform scale-[1.02]'
+                : 'text-gray-600 bg-white/80 hover:bg-white hover:border-gray-200 hover:shadow-lg hover:transform hover:scale-[1.02]'}
               ${collapsed ? 'justify-center' : ''}
+              
+              // Hover illusion effect
+              before:absolute before:inset-0 before:bg-gradient-to-r before:from-gray-50 before:to-gray-100 
+              before:opacity-0 before:transition-opacity before:duration-300
+              hover:before:opacity-100
             `}
           >
-            <span className={collapsed ? '' : 'mr-3'}>
-              {React.cloneElement(item.icon, { size: 20 })}
+            {/* Active state overlay */}
+            {currentPath === item.path && (
+              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-2xl" />
+            )}
+            
+            {/* Content */}
+            <span className={`relative z-10 flex items-center ${collapsed ? '' : 'mr-3'}`}>
+              {React.cloneElement(item.icon, { 
+                size: 20,
+                className: currentPath === item.path ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'
+              })}
             </span>
-            {!collapsed && item.label}
+            {!collapsed && (
+              <span className="relative z-10 font-semibold">
+                {item.label}
+              </span>
+            )}
           </button>
         ))}
       </nav>
+
+      {/* Sidebar Footer - Optional bottom area */}
+      <div className="absolute bottom-4 left-4 right-4">
+        <div className="text-xs text-gray-400 text-center">
+          {!collapsed && "Powered by Quadrah Solutions"}
+        </div>
+      </div>
     </aside>
   );
 }
 
 // -------------------------------------------------------------------
-// 2. Topbar Component (FIXED for hiding content)
+// 2. Topbar Component (Updated to match sidebar card style)
 // -------------------------------------------------------------------
 function Topbar({ isSidebarCollapsed = false }) {
   const { user, logout } = useAuth();
   
-  // lg:left-64 (16rem) when expanded, lg:left-20 (5rem) when collapsed
-  const leftPositionClass = isSidebarCollapsed ? 'lg:left-20' : 'lg:left-64';
+  const leftPositionClass = isSidebarCollapsed ? 'lg:left-28' : 'lg:left-72'; // Adjusted for card margins
 
   return (
     <header 
       className={`
-        h-16 fixed top-0 z-30 
-        bg-white border-b border-gray-200
+        h-16 fixed top-4 z-30 
+        bg-white border border-gray-200/60
         flex items-center justify-between
         transition-all duration-300 ease-in-out
+        shadow-lg
+        rounded-2xl
+        backdrop-blur-sm
         
-        // FIX: Use inset-x-0 (left-0 and right-0) for mobile.
-        // Then, override 'left-0' with the dynamic 'left-xx' on desktop, 
-        // while keeping 'right-0' to define the dynamic width.
-        inset-x-0 lg:right-0
+        // Position adjustments for sidebar card
+        inset-x-4 lg:right-4
         ${leftPositionClass} 
       `}
     >
@@ -114,24 +152,29 @@ function Topbar({ isSidebarCollapsed = false }) {
         </h1>
       </div>
 
-      <div className="flex items-center px-6 space-x-4">
+      <div className="flex items-center px-6 space-x-3">
+        {/* Settings Button - Rounded Card with Hover */}
         <button 
           aria-label="Settings"
-          className="p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+          className="p-2.5 rounded-xl text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 hover:text-gray-700 hover:shadow-md transition-all duration-200"
         >
           <FiSettings size={20} />
         </button>
 
-        <div className="text-sm font-medium text-gray-700">
-          Welcome, 
-          <span className="font-semibold text-gray-900 ml-1">
-            {user?.name || 'User'}
-          </span>
+        {/* User Welcome - Rounded Card */}
+        <div className="px-4 py-2 rounded-xl bg-gray-50/80 border border-gray-100">
+          <div className="text-sm font-medium text-gray-700">
+            Welcome, 
+            <span className="font-semibold text-gray-900 ml-1">
+              {user?.name || 'User'}
+            </span>
+          </div>
         </div>
         
+        {/* Logout Button - Rounded Card with Hover */}
         <button 
           onClick={logout} 
-          className="flex items-center space-x-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 px-3 py-2 rounded-lg text-sm font-medium transition-colors border border-transparent hover:border-gray-300"
+          className="flex items-center space-x-2 bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-md px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200"
         >
           <FiLogOut size={16} />
           <span>Logout</span>
@@ -142,44 +185,48 @@ function Topbar({ isSidebarCollapsed = false }) {
 }
 
 // -------------------------------------------------------------------
-// 3. AppShell Component (Central State Management)
+// 3. AppShell Component (Updated with card-based layout)
 // -------------------------------------------------------------------
 export default function AppShell() {
   const location = useLocation();
-  // CENTRALIZED STATE: The one source of truth for the collapsed state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); 
   
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  // Content Margin: ml-64 (expanded) or ml-20 (collapsed)
-  const contentMarginClass = isSidebarCollapsed ? 'ml-20' : 'ml-64';
+  const contentMarginClass = isSidebarCollapsed ? 'ml-28' : 'ml-72'; // Adjusted for card margins
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-emerald-50/30">
       
-      {/* Sidebar: Pass the state and the toggle function down */}
+      {/* Sidebar as Card */}
       <Sidebar 
         currentPath={location.pathname} 
-        collapsed={isSidebarCollapsed} // Pass the state down
-        toggleSidebar={toggleSidebar} // Pass the setter function down
+        collapsed={isSidebarCollapsed}
+        toggleSidebar={toggleSidebar}
       />
 
-      {/* Topbar: Pass the state down */}
+      {/* Topbar as Card */}
       <Topbar isSidebarCollapsed={isSidebarCollapsed} />
 
-      {/* Main Content Wrapper Div */}
+      {/* Main Content Wrapper - Adjusted for card layout */}
       <div 
-        // This margin updates immediately when 'isSidebarCollapsed' changes
         className={`
           transition-all duration-300 ease-in-out
-          ${contentMarginClass} // Dynamic margin fix
+          ${contentMarginClass}
+          mt-4
         `}
       >
-        {/* Main content with top padding to clear the fixed Topbar */}
+        {/* Main content with enhanced card appearance */}
         <main className="p-6 pt-24">
-          <Outlet />
+          <div className="rounded-3xl bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200/50 min-h-[calc(100vh-8rem)] overflow-hidden">
+            {/* Subtle top gradient accent */}
+            <div className="h-1 bg-gradient-to-r from-emerald-400 to-blue-400"></div>
+            <div className="p-6">
+              <Outlet />
+            </div>
+          </div>
         </main>
       </div>
     </div>
