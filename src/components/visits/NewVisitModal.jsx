@@ -224,7 +224,7 @@ const NewVisitModal = ({ isOpen, onClose, onSave }) => {
                     onChange={(e) => handleChange('outcome', e.target.value)}
                     className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="text-gray-700">Return to Class</span>
+                  <span className="text-gray-700">Zoom</span>
                 </label>
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
@@ -255,10 +255,10 @@ const NewVisitModal = ({ isOpen, onClose, onSave }) => {
             <div className="flex justify-end pt-4">
               <button
                 type="submit"
-                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm hover:shadow-md font-semibold"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-8 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 shadow-sm hover:shadow-md"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 Submit Visit Record
               </button>

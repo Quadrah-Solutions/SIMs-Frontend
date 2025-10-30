@@ -40,7 +40,7 @@ export const mockStudentData = {
     },
     { 
       id: 2, 
-      name: "Kofi Asante", 
+      name: "Janice Esi", 
       studentId: "STU002", 
       grade: "Grade 8", 
       className: "8B", 

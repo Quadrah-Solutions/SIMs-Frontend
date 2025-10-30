@@ -3,7 +3,8 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
 import {
   FiHome, FiUsers, FiCalendar, FiPlusSquare, FiDroplet, FiBarChart2, FiFileText,
-  FiChevronsLeft, FiChevronsRight, FiLogOut, FiSettings, 
+  FiChevronsLeft, FiChevronsRight, FiLogOut, FiSettings,
+  FiBell, 
 } from 'react-icons/fi';
 
 // Define the navigation items
@@ -11,10 +12,10 @@ const sidebarItems = [
   { path: "/", label: "Dashboard", icon: <FiHome /> },
   { path: "/students", label: "Students", icon: <FiUsers /> },
   { path: "/visits", label: "Visits", icon: <FiCalendar /> },
-  { path: "/visits/new", label: "New Visit", icon: <FiPlusSquare /> },
+  // { path: "/visits/new", label: "New Visit", icon: <FiPlusSquare /> },
   { path: "/medications", label: "Medications", icon: <FiDroplet /> },
-  { path: "/analytics", label: "Analytics", icon: <FiBarChart2 /> },
-  { path: "/reports", label: "Reports", icon: <FiFileText /> },
+  { path: "/analytics", label: "Reports & Analytics", icon: <FiBarChart2 /> },
+  { path: "/management", label: "User Management", icon: <FiSettings /> },
 ];
 
 // -------------------------------------------------------------------
@@ -169,7 +170,7 @@ function Topbar({ isSidebarCollapsed = false }) {
           aria-label="Settings"
           className="p-2.5 rounded-xl text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 hover:text-gray-700 hover:shadow-md transition-all duration-200"
         >
-          <FiSettings size={20} />
+          <FiBell size={20} />
         </button>
 
         {/* User Welcome - Rounded Card */}

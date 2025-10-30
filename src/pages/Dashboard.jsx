@@ -7,7 +7,6 @@ import Alerts from '../components/dashboard/Alerts';
 
 const Dashboard = () => {
   const { stats, latestVisits, alerts, loading, error, refetch } = useDashboard();
-
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">

@@ -1,6 +1,7 @@
 import React from 'react';
 
 const QuickActions = () => {
+    
   const actions = [
     {
       label: "New Visit",

@@ -51,7 +51,7 @@ export const mockVisitData = {
     { 
       id: 2, 
       date: "2024-01-15T11:15:00", 
-      student: "Kofi Asante", 
+      student: "Janice Esi", 
       studentId: "STU002",
       grade: "Grade 8",
       className: "8B",

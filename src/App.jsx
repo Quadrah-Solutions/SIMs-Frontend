@@ -8,7 +8,7 @@ import StudentProfile from "./pages/StudentProfile";
 import Visits from "./pages/Visits";
 import NewVisit from "./pages/NewVisit";
 import Medications from "./pages/Medications";
-import Reports from "./pages/Reports";
+import Management from "./pages/Management";
 import AdminUsers from "./pages/AdminUsers";
 import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
@@ -38,7 +38,7 @@ export default function App() {
           <Route path="visits/new" element={<NewVisit />} />
           <Route path="medications" element={<Medications />} />
           <Route path="analytics" element={<Analytics />} />
-          <Route path="reports" element={<Reports />} />
+          <Route path="management" element={<Management />} />
           <Route path="admin/users" element={<AdminUsers />} />
           <Route path="admin/settings" element={<AdminSettings />} />
         </Route>
