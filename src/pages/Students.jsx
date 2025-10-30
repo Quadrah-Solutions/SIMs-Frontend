@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useStudents } from '../hooks/useStudents';
 import StudentFilters from '../components/students/StudentFilters';
 import StudentsTable from '../components/students/StudentsTable';
+import NewStudentModal from '../components/students/NewStudentModal';
 
 const Students = () => {
   const { 
@@ -15,8 +16,11 @@ const Students = () => {
     totalPages, 
     totalCount, 
     refetch, 
-    updateFilters 
+    updateFilters,
+    createStudent 
   } = useStudents();
+
+  const [isNewStudentModalOpen, setIsNewStudentModalOpen] = useState(false);
 
   console.log('Students component state:', { 
     students, 
@@ -29,7 +33,23 @@ const Students = () => {
 
   const handleAddStudent = () => {
     console.log('Add student clicked');
-    // navigate('/students/new');
+    setIsNewStudentModalOpen(true);
+  };
+
+  const handleCloseNewStudentModal = () => {
+    setIsNewStudentModalOpen(false);
+  };
+
+  const handleSaveStudent = async (studentData) => {
+    try {
+      console.log('Saving new student:', studentData);
+      await createStudent(studentData);
+      setIsNewStudentModalOpen(false);
+      // No need to manually refetch as createStudent already updates the state
+    } catch (error) {
+      console.error('Failed to save student:', error);
+      // You could show an error message to the user here
+    }
   };
 
   const handlePageChange = (page) => {
@@ -61,7 +81,10 @@ const Students = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+      {/* Apply blur to the main content when modal is open */}
+      <div className={`max-w-7xl mx-auto transition-all duration-300 ${
+        isNewStudentModalOpen ? 'blur-sm opacity-70' : 'blur-0 opacity-100'
+      }`}>
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Students</h1>
           <p className="text-gray-600 mt-2">Manage student records and information</p>
@@ -84,6 +107,13 @@ const Students = () => {
           onPageChange={handlePageChange}
         />
       </div>
+
+      {/* New Student Modal */}
+      <NewStudentModal
+        isOpen={isNewStudentModalOpen}
+        onClose={handleCloseNewStudentModal}
+        onSave={handleSaveStudent}
+      />
     </div>
   );
 };

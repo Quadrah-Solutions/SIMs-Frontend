@@ -1,33 +1,68 @@
-// API endpoints configuration
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '/api';
+import config from '../config/config';
+
+const API_BASE_URL = config.API_BASE_URL;
 
 export const studentService = {
   async getStudents(page = 1, pageSize = 10, filters = {}) {
-    const queryParams = new URLSearchParams({
-      page: page.toString(),
-      pageSize: pageSize.toString(),
-      ...filters
-    });
-    
-    const response = await fetch(`${API_BASE_URL}/students?${queryParams}`);
-    if (!response.ok) throw new Error('Failed to fetch students');
-    return await response.json();
+    try {
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+        ...filters
+      });
+      
+      console.log('Fetching students from:', `${API_BASE_URL}/students?${queryParams}`);
+      
+      const response = await fetch(`${API_BASE_URL}/students?${queryParams}`);
+      if (!response.ok) throw new Error('Failed to fetch students');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching students:', error);
+      throw error;
+    }
   },
 
   async getGrades() {
-    const response = await fetch(`${API_BASE_URL}/grades`);
-    if (!response.ok) throw new Error('Failed to fetch grades');
-    return await response.json();
+    try {
+      const response = await fetch(`${API_BASE_URL}/grades`);
+      if (!response.ok) throw new Error('Failed to fetch grades');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching grades:', error);
+      throw error;
+    }
   },
 
   async getClasses() {
-    const response = await fetch(`${API_BASE_URL}/classes`);
-    if (!response.ok) throw new Error('Failed to fetch classes');
-    return await response.json();
+    try {
+      const response = await fetch(`${API_BASE_URL}/classes`);
+      if (!response.ok) throw new Error('Failed to fetch classes');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+      throw error;
+    }
+  },
+
+  async createStudent(studentData) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/students`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(studentData)
+      });
+      if (!response.ok) throw new Error('Failed to create student');
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating student:', error);
+      throw error;
+    }
   }
 };
 
-// Mock data for development (remove in production)
+// Mock data for development (fallback when API is not available)
 export const mockStudentData = {
   students: [
     { 

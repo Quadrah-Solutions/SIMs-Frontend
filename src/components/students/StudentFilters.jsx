@@ -80,7 +80,7 @@ const StudentFilters = ({ filters, grades, classes, onFilterChange, onAddStudent
         </div>
 
         {/* Add Student Button - Far right with spacing */}
-        <div className="w-full lg:w-auto lg:ml-8">
+        <div className="w-full lg:w-auto lg:ml-8 relative">
           <button
             onClick={onAddStudent}
             className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm hover:shadow-md"
