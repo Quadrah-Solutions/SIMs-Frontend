@@ -21,9 +21,18 @@ const NewStudentModal = ({ isOpen, onClose, onSave }) => {
       
       // Small delay to trigger animation
       setTimeout(() => setIsVisible(true), 10);
+      
+      // Optional: Prevent background scrolling when modal is open
+      document.body.style.overflow = 'hidden';
     } else {
       setIsVisible(false);
+      document.body.style.overflow = 'unset'; // Restore scrolling
     }
+    
+    // Cleanup function to ensure scrolling is restored on unmount/close
+    return () => {
+        document.body.style.overflow = 'unset';
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -43,15 +52,21 @@ const NewStudentModal = ({ isOpen, onClose, onSave }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50">
-      {/* Modal positioned under the New Student button */}
+    // 1. Overlay container: fixed, full screen, centered content, with backdrop
+    <div 
+        className="fixed inset-0 z-50 flex items-center justify-center bg-opacity-50"
+        onClick={onClose} // Close on backdrop click (optional)
+    >
+      {/* 2. Modal content container: centered, fixed size, with transition */}
       <div 
-        className={`absolute top-30 right-6 bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-gray-200 transition-all duration-300 transform ${
+        // Stop clicks inside the modal from bubbling up and closing the modal
+        onClick={(e) => e.stopPropagation()} 
+        className={`bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-gray-200 transition-all duration-300 transform mx-4 ${ // Added mx-4 for padding on smaller screens
           isVisible 
             ? 'translate-y-0 opacity-100 scale-100' 
             : 'translate-y-4 opacity-0 scale-95'
         }`}
-        style={{ maxHeight: 'calc(100vh - 140px)' }}
+        style={{ maxHeight: 'calc(100vh - 140px)' }} // Maintain max height logic
       >
         {/* Header - with rounded top corners */}
         <div className="p-6 border-b border-gray-200 bg-white rounded-t-2xl">
