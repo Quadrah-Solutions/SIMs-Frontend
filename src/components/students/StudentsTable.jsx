@@ -4,6 +4,16 @@ import { useNavigate } from 'react-router-dom';
 const StudentsTable = ({ students, loading, currentPage, totalPages, totalCount, onPageChange }) => {
   const navigate = useNavigate();
 
+    if (!students || !Array.isArray(students)) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="text-center text-gray-500">
+          No student data available
+        </div>
+      </div>
+    );
+  }
+
   // Generate page numbers for pagination
   const getPageNumbers = () => {
     const pages = [];

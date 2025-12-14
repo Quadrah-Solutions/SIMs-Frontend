@@ -1,111 +1,176 @@
 import React, { useState, useEffect } from "react";
 import UsersTable from '../components/settings/UsersTable';
+import AddUserModal from '../components/settings/AddUserModal';
+import useAuth from '../hooks/useAuth';
 
-// Mock data directly in the component
-const mockUsers = [
-  { 
-    id: 1, 
-    username: "admin.john", 
-    role: "Administrator", 
-    status: "Active", 
-    lastLogin: "2024-01-15 14:30:22" 
-  },
-  { 
-    id: 2, 
-    username: "nurse.mary", 
-    role: "Nurse", 
-    status: "Active", 
-    lastLogin: "2024-01-14 09:15:45" 
-  },
-  { 
-    id: 3, 
-    username: "teacher.kwame", 
-    role: "Teacher", 
-    status: "Inactive", 
-    lastLogin: "2024-01-10 16:20:33" 
-  }
-];
-
-const mockSettings = {
-  termStart: "2024-01-08",
-  termEnd: "2024-04-05",
-  holidays: [
-    { id: 1, name: "Mid-term Break", date: "2024-02-12" },
-    { id: 2, name: "Independence Day", date: "2024-03-06" }
-  ],
-  alertParameters: {
-    lowStock: 10,
-    expiryDays: 30,
-    visitReminder: 7
-  }
+const initialLocalSettings = {
+  termStart: "",
+  termEnd: "",
+  lowStock: "",
+  expiryDays: "",
+  visitReminder: ""
 };
 
-
 export default function Management() {
+  const { keycloak, hasRole } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState(null);
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [localSettings, setLocalSettings] = useState(initialLocalSettings);
+  const [saveLoading, setSaveLoading] = useState(false);
 
-  const [localSettings, setLocalSettings] = useState({
-    termStart: "",
-    termEnd: "",
-    lowStock: "",
-    expiryDays: "",
-    visitReminder: ""
-  });
+  // Fetch users from backend
+  const fetchUsers = async () => {
+    try {
+      const usersData = await api.get('/api/users');
+      setUsers(usersData);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch system settings
+  const fetchSettings = async () => {
+    try {
+      const settingsData = await api.get('/api/settings');
+      setSettings(settingsData);
+    } catch (error) {
+      if (error.message.includes('404')) {
+        // Settings not found, use defaults
+        setSettings({
+          termStart: "",
+          termEnd: "",
+          holidays: [],
+          alertParameters: {
+            lowStock: 10,
+            expiryDays: 30,
+            visitReminder: 7
+          }
+        });
+      } else {
+        console.error('Failed to fetch settings:', error);
+      }
+    }
+  };
 
   useEffect(() => {
-    // Simulate API calls
-    setTimeout(() => {
-      setUsers(mockUsers);
-      setSettings(mockSettings);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    if (keycloak.authenticated) {
+      fetchUsers();
+      fetchSettings();
+    }
+  }, [keycloak.authenticated]);
 
   useEffect(() => {
     if (settings) {
       setLocalSettings({
         termStart: settings.termStart || "",
         termEnd: settings.termEnd || "",
-        lowStock: settings.alertParameters?.lowStock || "",
-        expiryDays: settings.alertParameters?.expiryDays || "",
-        visitReminder: settings.alertParameters?.visitReminder || ""
+        lowStock: settings.alertParameters?.lowStock?.toString() || "10",
+        expiryDays: settings.alertParameters?.expiryDays?.toString() || "30",
+        visitReminder: settings.alertParameters?.visitReminder?.toString() || "7"
       });
     }
   }, [settings]);
 
   const handleAddUser = () => {
-    console.log('Add user clicked');
+    if (!hasRole('ADMIN')) {
+      alert('You need ADMIN role to create users');
+      return;
+    }
+    setIsAddUserModalOpen(true);
+  };
+
+  const handleUserCreated = (newUser) => {
+    setUsers(prev => [...prev, newUser]);
+    fetchUsers(); // Refresh the list
   };
 
   const handleSaveSettings = async () => {
-    console.log('Saving settings:', localSettings);
-    // Simulate save
-    setSettings(prev => ({
-      ...prev,
-      termStart: localSettings.termStart,
-      termEnd: localSettings.termEnd,
-      alertParameters: {
-        lowStock: parseInt(localSettings.lowStock),
-        expiryDays: parseInt(localSettings.expiryDays),
-        visitReminder: parseInt(localSettings.visitReminder)
+    setSaveLoading(true);
+    try {
+      const response = await fetch('http://localhost:8080/api/settings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${keycloak.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          termStart: localSettings.termStart,
+          termEnd: localSettings.termEnd,
+          alertParameters: {
+            lowStock: parseInt(localSettings.lowStock) || 0,
+            expiryDays: parseInt(localSettings.expiryDays) || 0,
+            visitReminder: parseInt(localSettings.visitReminder) || 0
+          }
+        })
+      });
+
+      if (response.ok) {
+        const savedSettings = await response.json();
+        setSettings(savedSettings);
+        console.log('Settings saved successfully');
+      } else {
+        console.error('Failed to save settings:', response.status);
       }
-    }));
-    console.log('Settings saved successfully');
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+    } finally {
+      setSaveLoading(false);
+    }
   };
 
-  const handleAddHoliday = () => {
-    console.log('Add holiday clicked');
+  const handleAddHoliday = async () => {
+    const holidayName = prompt('Enter holiday name:');
+    const holidayDate = prompt('Enter holiday date (YYYY-MM-DD):');
+    
+    if (holidayName && holidayDate) {
+      try {
+        const response = await fetch('http://localhost:8080/api/settings/holidays', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${keycloak.token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: holidayName,
+            date: holidayDate
+          })
+        });
+
+        if (response.ok) {
+          const updatedSettings = await response.json();
+          setSettings(updatedSettings);
+        } else {
+          console.error('Failed to add holiday:', response.status);
+        }
+      } catch (error) {
+        console.error('Failed to add holiday:', error);
+      }
+    }
   };
 
-  const handleDeleteHoliday = (id) => {
-    console.log('Delete holiday:', id);
-    if (settings) {
-      setSettings(prev => ({
-        ...prev,
-        holidays: prev.holidays.filter(h => h.id !== id)
-      }));
+  const handleDeleteHoliday = async (holidayId) => {
+    if (window.confirm('Are you sure you want to delete this holiday?')) {
+      try {
+        const response = await fetch(`http://localhost:8080/api/settings/holidays/${holidayId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${keycloak.token}`
+          }
+        });
+
+        if (response.ok) {
+          const updatedSettings = await response.json();
+          setSettings(updatedSettings);
+        } else {
+          console.error('Failed to delete holiday:', response.status);
+        }
+      } catch (error) {
+        console.error('Failed to delete holiday:', error);
+      }
     }
   };
 
@@ -191,6 +256,11 @@ export default function Management() {
                     </button>
                   </div>
                 ))}
+                {(!settings?.holidays || settings.holidays.length === 0) && (
+                  <div className="text-center text-gray-500 py-4">
+                    No holidays configured
+                  </div>
+                )}
                 <button
                   onClick={handleAddHoliday}
                   className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-xl flex items-center justify-center gap-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
@@ -269,15 +339,31 @@ export default function Management() {
           <div className="flex justify-end mt-8">
             <button
               onClick={handleSaveSettings}
-              className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-8 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 shadow-sm hover:shadow-md"
+              disabled={saveLoading}
+              className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-8 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="font-semibold">Save Settings</span>
+              {saveLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span className="font-semibold">Saving...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="font-semibold">Save Settings</span>
+                </>
+              )}
             </button>
           </div>
         </div>
+
+        <AddUserModal
+          isOpen={isAddUserModalOpen}
+          onClose={() => setIsAddUserModalOpen(false)}
+          onUserCreated={handleUserCreated}
+        />
       </div>
     </div>
   );

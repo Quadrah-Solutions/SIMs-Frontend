@@ -22,13 +22,14 @@ const Students = () => {
 
   const [isNewStudentModalOpen, setIsNewStudentModalOpen] = useState(false);
 
+
   console.log('Students component state:', { 
     students, 
     grades, 
     classes, 
     loading, 
     error,
-    studentsCount: students.length
+    studentsCount: students ? students.length : 0  // ← Fixed this line
   });
 
   const handleAddStudent = () => {
@@ -55,6 +56,21 @@ const Students = () => {
   const handlePageChange = (page) => {
     refetch(page);
   };
+
+   if (loading && (!students || students.length === 0)) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading students...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -99,7 +115,7 @@ const Students = () => {
         />
 
         <StudentsTable
-          students={students}
+          students={students || []}  // ← Ensure it's always an array
           loading={loading}
           currentPage={currentPage}
           totalPages={totalPages}

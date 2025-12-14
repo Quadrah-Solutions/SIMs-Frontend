@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import keycloak from "./config/keycloak";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -17,6 +18,41 @@ import AppShell from "./components/layout/AppShell";
 import Analytics from "./pages/Analytics";
 
 export default function App() {
+  const [keycloakInitialized, setKeycloakInitialized] = useState(false);
+
+  useEffect(() => {
+    const initializeKeycloak = async () => {
+      try {
+        const authenticated = await keycloak.init({
+          onLoad: 'login-required', // Changed to 'login-required' to force login
+          checkLoginIframe: false, // Disable iframe check to avoid CORS issues
+          pkceMethod: 'S256',
+          scope: 'openid' // Add scope explicitly
+        });
+
+        console.log('Keycloak initialized, authenticated:', authenticated);
+        setKeycloakInitialized(true);
+      } catch (error) {
+        console.error('Keycloak initialization failed', error);
+        setKeycloakInitialized(true);
+      }
+    };
+
+    initializeKeycloak();
+  }, []);
+
+  // Show loading spinner while Keycloak initializes
+  if (!keycloakInitialized) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Initializing authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <BrowserRouter>
       <Routes>

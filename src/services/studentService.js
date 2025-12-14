@@ -1,6 +1,15 @@
 import config from '../config/config';
+import keycloak from '../config/keycloak'; 
 
 const API_BASE_URL = config.API_BASE_URL;
+
+// Helper function to get the authorization header
+const getAuthHeader = () => {
+  if (keycloak && keycloak.token) {
+    return { 'Authorization': `Bearer ${keycloak.token}` };
+  }
+  return {};
+};
 
 export const studentService = {
   async getStudents(page = 1, pageSize = 10, filters = {}) {
@@ -11,11 +20,40 @@ export const studentService = {
         ...filters
       });
       
-      console.log('Fetching students from:', `${API_BASE_URL}/students?${queryParams}`);
+      console.log('Fetching students from:', `${API_BASE_URL}/students`);
       
-      const response = await fetch(`${API_BASE_URL}/students?${queryParams}`);
-      if (!response.ok) throw new Error('Failed to fetch students');
-      return await response.json();
+      const response = await fetch(`${API_BASE_URL}/students`, {
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        console.error('Response status:', response.status);
+        throw new Error('Failed to fetch students');
+      }
+      
+      const data = await response.json();
+      
+      // Transform the data to match UI expectations
+      const transformedData = data.map(student => ({
+        id: student.id,
+        name: `${student.firstName} ${student.lastName}`,
+        studentId: student.studentId,
+        grade: student.gradeLevel,      // Map gradeLevel to grade
+        className: student.homeroom,    // Map homeroom to className
+        allergies: student.specialNotes || 'None'  // Map specialNotes to allergies
+      }));
+      
+      // Return in the expected format
+      return {
+        students: transformedData,
+        totalPages: Math.ceil(transformedData.length / pageSize),
+        totalCount: transformedData.length,
+        currentPage: page
+      };
+      
     } catch (error) {
       console.error('Error fetching students:', error);
       throw error;
@@ -24,7 +62,9 @@ export const studentService = {
 
   async getGrades() {
     try {
-      const response = await fetch(`${API_BASE_URL}/grades`);
+      const response = await fetch(`${API_BASE_URL}/grades`, {
+        headers: getAuthHeader()
+      });
       if (!response.ok) throw new Error('Failed to fetch grades');
       return await response.json();
     } catch (error) {
@@ -35,7 +75,9 @@ export const studentService = {
 
   async getClasses() {
     try {
-      const response = await fetch(`${API_BASE_URL}/classes`);
+      const response = await fetch(`${API_BASE_URL}/classes`, {
+        headers: getAuthHeader()
+      });
       if (!response.ok) throw new Error('Failed to fetch classes');
       return await response.json();
     } catch (error) {
@@ -50,6 +92,7 @@ export const studentService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...getAuthHeader()
         },
         body: JSON.stringify(studentData)
       });
