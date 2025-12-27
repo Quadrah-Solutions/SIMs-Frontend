@@ -3,6 +3,9 @@ import { useStudents } from '../hooks/useStudents';
 import StudentFilters from '../components/students/StudentFilters';
 import StudentsTable from '../components/students/StudentsTable';
 import NewStudentModal from '../components/students/NewStudentModal';
+import { useNotification } from '../components/common/NotificationProvider';
+import StudentMedicalHistory from '../components/students/StudentMedicalHistory';
+
 
 const Students = () => {
   const { 
@@ -21,6 +24,15 @@ const Students = () => {
   } = useStudents();
 
   const [isNewStudentModalOpen, setIsNewStudentModalOpen] = useState(false);
+
+  const { success, error: showError } = useNotification();
+
+  const [selectedStudentForMedicalHistory, setSelectedStudentForMedicalHistory] = useState(null);
+
+  // Add this function
+  const openMedicalHistoryModal = (student) => {
+    setSelectedStudentForMedicalHistory(student);
+  };
 
 
   console.log('Students component state:', { 
@@ -46,10 +58,14 @@ const Students = () => {
       console.log('Saving new student:', studentData);
       await createStudent(studentData);
       setIsNewStudentModalOpen(false);
+
+      // Show success notification
+      success('Student added successfully!');
       // No need to manually refetch as createStudent already updates the state
     } catch (error) {
       console.error('Failed to save student:', error);
-      // You could show an error message to the user here
+      // Show error notification
+      showError(`Failed to save student: ${err.message}`);
     }
   };
 
@@ -115,7 +131,7 @@ const Students = () => {
         />
 
         <StudentsTable
-          students={students || []}  // ← Ensure it's always an array
+          students={students || []}  
           loading={loading}
           currentPage={currentPage}
           totalPages={totalPages}
@@ -123,6 +139,33 @@ const Students = () => {
           onPageChange={handlePageChange}
         />
       </div>
+
+       {/* Medical History Modal */}
+      {selectedStudentForMedicalHistory && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-xl bg-white">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Medical History - {selectedStudentForMedicalHistory.firstName} {selectedStudentForMedicalHistory.lastName}
+              </h2>
+              <button
+                onClick={() => setSelectedStudentForMedicalHistory(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <StudentMedicalHistory
+              studentId={selectedStudentForMedicalHistory.id}
+              studentName={`${selectedStudentForMedicalHistory.firstName} ${selectedStudentForMedicalHistory.lastName}`}
+              onClose={() => setSelectedStudentForMedicalHistory(null)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* New Student Modal */}
       <NewStudentModal

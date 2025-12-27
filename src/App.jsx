@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import keycloak from "./config/keycloak";
+import { NotificationProvider } from './components/common/NotificationProvider';
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -54,34 +55,36 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+    <NotificationProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
 
-        {/* Protected area wrapped in AppShell */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <AppShell />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<Dashboard />} />
-          <Route path="students" element={<Students />} />
-          <Route path="students/:id" element={<StudentProfile />} />
-          <Route path="visits" element={<Visits />} />
-          <Route path="visits/new" element={<NewVisit />} />
-          <Route path="medications" element={<Medications />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="management" element={<Management />} />
-          <Route path="admin/users" element={<AdminUsers />} />
-          <Route path="admin/settings" element={<AdminSettings />} />
-        </Route>
+          {/* Protected area wrapped in AppShell */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <AppShell />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Dashboard />} />
+            <Route path="students" element={<Students />} />
+            <Route path="students/:id" element={<StudentProfile />} />
+            <Route path="visits" element={<Visits />} />
+            <Route path="visits/new" element={<NewVisit />} />
+            <Route path="medications" element={<Medications />} />
+            <Route path="analytics" element={<Analytics />} />
+            <Route path="management" element={<Management />} />
+            <Route path="admin/users" element={<AdminUsers />} />
+            <Route path="admin/settings" element={<AdminSettings />} />
+          </Route>
 
-        <Route path="/404" element={<NotFound />} />
-        <Route path="*" element={<Navigate to="/404" replace />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="/404" element={<NotFound />} />
+          <Route path="*" element={<Navigate to="/404" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </NotificationProvider>
   );
 }

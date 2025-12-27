@@ -1,6 +1,17 @@
 import React from 'react';
 
-const MedicationsTable = ({ medications, loading, currentPage, totalPages, totalCount, onPageChange }) => {
+const MedicationsTable = ({ 
+  medications, 
+  loading, 
+  currentPage, 
+  totalPages, 
+  totalCount, 
+  onPageChange,
+  onView,
+  onEdit,
+  onRestock,
+  onDelete
+}) => {
   // Generate page numbers for pagination
   const getPageNumbers = () => {
     const pages = [];
@@ -24,14 +35,52 @@ const MedicationsTable = ({ medications, loading, currentPage, totalPages, total
   const getStatusColor = (status) => {
     switch (status) {
       case 'In Stock':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 border border-green-200';
       case 'Low Stock':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
       case 'Expiring Soon':
-        return 'bg-red-100 text-red-800';
+        return 'bg-orange-100 text-orange-800 border border-orange-200';
+      case 'Expired':
+        return 'bg-red-100 text-red-800 border border-red-200';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 border border-gray-200';
     }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const formatStockLevel = (medication) => {
+    const percentage = (medication.stockLevel / medication.quantity) * 100;
+    let color = 'bg-green-500';
+    
+    if (medication.status === 'Low Stock') {
+      color = 'bg-yellow-500';
+    } else if (medication.status === 'Expiring Soon') {
+      color = 'bg-orange-500';
+    }
+    
+    return (
+      <div className="w-32">
+        <div className="flex justify-between text-xs text-gray-600 mb-1">
+          <span>{medication.stockLevel} {medication.unit}</span>
+          <span>{Math.round(percentage)}%</span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div 
+            className={`h-2 rounded-full ${color}`}
+            style={{ width: `${Math.min(percentage, 100)}%` }}
+          ></div>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -65,6 +114,18 @@ const MedicationsTable = ({ medications, loading, currentPage, totalPages, total
     );
   }
 
+  if (medications.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+        <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No medications found</h3>
+        <p className="text-gray-500">No medications match your current filters.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       <div className="overflow-x-auto">
@@ -91,25 +152,46 @@ const MedicationsTable = ({ medications, loading, currentPage, totalPages, total
           <tbody className="bg-white divide-y divide-gray-200">
             {medications.map((medication) => (
               <tr key={medication.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {medication.name}
+                <td className="px-6 py-4">
+                  <div className="text-sm font-medium text-gray-900">
+                    {medication.name}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {medication.brand} • {medication.category}
+                  </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {medication.stockLevel} units
+                <td className="px-6 py-4">
+                  {formatStockLevel(medication)}
+                  <div className="text-xs text-gray-500 mt-1">
+                    Min: {medication.minStockLevel} {medication.unit}
+                  </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {medication.expiryDate}
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {formatDate(medication.expiryDate)}
+                  {medication.daysUntilExpiry !== undefined && (
+                    <div className={`text-xs ${
+                      medication.daysUntilExpiry <= 0 
+                        ? 'text-red-600' 
+                        : medication.daysUntilExpiry <= 30 
+                        ? 'text-orange-600' 
+                        : 'text-green-600'
+                    }`}>
+                      {medication.daysUntilExpiry <= 0 
+                        ? 'Expired' 
+                        : `${medication.daysUntilExpiry} days left`}
+                    </div>
+                  )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(medication.status)}`}>
                     {medication.status}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex space-x-3">
+                  <div className="flex space-x-2">
                     {/* View Icon */}
                     <button
-                      onClick={() => console.log('View medication:', medication.id)}
+                      onClick={() => onView && onView(medication.id)}
                       className="text-blue-600 hover:text-blue-900 transition duration-200 p-1 rounded hover:bg-blue-50"
                       title="View Medication"
                     >
@@ -121,7 +203,7 @@ const MedicationsTable = ({ medications, loading, currentPage, totalPages, total
                     
                     {/* Edit Icon */}
                     <button
-                      onClick={() => console.log('Edit medication:', medication.id)}
+                      onClick={() => onEdit && onEdit(medication.id)}
                       className="text-green-600 hover:text-green-900 transition duration-200 p-1 rounded hover:bg-green-50"
                       title="Edit Medication"
                     >
@@ -132,7 +214,7 @@ const MedicationsTable = ({ medications, loading, currentPage, totalPages, total
                     
                     {/* Restock Icon */}
                     <button
-                      onClick={() => console.log('Restock medication:', medication.id)}
+                      onClick={() => onRestock && onRestock(medication.id)}
                       className="text-orange-600 hover:text-orange-900 transition duration-200 p-1 rounded hover:bg-orange-50"
                       title="Restock Medication"
                     >
@@ -143,7 +225,7 @@ const MedicationsTable = ({ medications, loading, currentPage, totalPages, total
 
                     {/* Delete Icon */}
                     <button
-                      onClick={() => console.log('Delete medication:', medication.id)}
+                      onClick={() => onDelete && onDelete(medication.id)}
                       className="text-red-600 hover:text-red-900 transition duration-200 p-1 rounded hover:bg-red-50"
                       title="Delete Medication"
                     >

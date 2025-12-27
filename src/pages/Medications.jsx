@@ -1,92 +1,166 @@
+// components/medications/Medications.jsx
 import React, { useState } from "react";
 import MedicationsTable from "../components/medications/MedicationsTable";
+import { useMedications } from '../hooks/useMedications';
+import { useNotification } from '../components/common/NotificationProvider';
+import { useAuth } from '../hooks/useAuth';
+import NewMedicationModal from '../components/medications/NewMedicationModal';
 
 export default function Medications() {
-  const [filters, setFilters] = useState({
-    dateRange: "last_30_days",
-    status: ""
-  });
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isUpdateStockModalOpen, setIsUpdateStockModalOpen] = useState(false);
+  
+  const { success, error: showError } = useNotification();
+  const { user } = useAuth();
 
-  const [tableState, setTableState] = useState({
-    loading: false,
-    currentPage: 1,
-    totalPages: 1,
-    totalCount: 5
-  });
+  const [selectedMedication, setSelectedMedication] = useState(null);
 
-  // Mock data for the medication cards
-  const medicationStats = [
-    { title: "Total Medications", count: 124, icon: "💊", color: "blue" },
-    { title: "Low Stock Items", count: 8, icon: "⚠️", color: "orange" },
-    { title: "Expiring Soon", count: 12, icon: "📅", color: "red" },
-    { title: "In Stock", count: 104, icon: "✅", color: "green" }
-  ];
-
-  // Mock data for the medication inventory table
-  const medicationData = [
-    { 
-      id: 1, 
-      name: "Paracetamol 500mg", 
-      stockLevel: 45, 
-      expiryDate: "2024-06-15", 
-      status: "In Stock" 
-    },
-    { 
-      id: 2, 
-      name: "Amoxicillin 250mg", 
-      stockLevel: 8, 
-      expiryDate: "2024-03-20", 
-      status: "Low Stock" 
-    },
-    { 
-      id: 3, 
-      name: "Ibuprofen 400mg", 
-      stockLevel: 23, 
-      expiryDate: "2024-08-10", 
-      status: "In Stock" 
-    },
-    { 
-      id: 4, 
-      name: "Ventolin Inhaler", 
-      stockLevel: 5, 
-      expiryDate: "2024-02-28", 
-      status: "Expiring Soon" 
-    },
-    { 
-      id: 5, 
-      name: "Cetirizine 10mg", 
-      stockLevel: 34, 
-      expiryDate: "2024-11-15", 
-      status: "In Stock" 
-    }
-  ];
+  const {
+    medications,
+    categories,
+    statistics,
+    loading,
+    error,
+    filters,
+    currentPage,
+    totalPages,
+    totalCount,
+    refetch,
+    updateFilters,
+    clearFilters,
+    createMedication,
+    updateMedication,
+    deleteMedication,
+    restockMedication
+  } = useMedications();
 
   const handleFilterChange = (filterType, value) => {
-    setFilters(prev => ({
-      ...prev,
+    updateFilters({
+      ...filters,
       [filterType]: value
-    }));
+    });
   };
 
   const handleUpdateStock = () => {
-    console.log('Update stock clicked');
+    setIsUpdateStockModalOpen(true);
   };
 
   const handleAddMedication = () => {
-    console.log('Add medication clicked');
+    setIsAddModalOpen(true);
   };
 
   const handlePageChange = (page) => {
-    setTableState(prev => ({
-      ...prev,
-      currentPage: page
-    }));
-    console.log('Page changed to:', page);
+    refetch(page);
   };
+
+ const handleSaveMedication = async (medicationData) => {
+  try {
+    if (selectedMedication) {
+      // Update existing medication
+      await updateMedication(selectedMedication.id, medicationData);
+      success('Medication updated successfully!');
+    } else {
+      // Create new medication
+      await createMedication(medicationData);
+      success('Medication added successfully!');
+    }
+    refetch();
+    setIsAddModalOpen(false);
+    setSelectedMedication(null);
+  } catch (err) {
+    showError(`Failed to ${selectedMedication ? 'update' : 'add'} medication: ${err.message}`);
+  }
+};
+
+  const handleDeleteMedication = async (medicationId) => {
+    if (window.confirm('Are you sure you want to delete this medication?')) {
+      try {
+        await deleteMedication(medicationId);
+        success('Medication deleted successfully!');
+        refetch();
+      } catch (err) {
+        showError(`Failed to delete medication: ${err.message}`);
+      }
+    }
+  };
+
+  const handleRestockMedication = async (medicationId, quantity) => {
+    try {
+      await restockMedication(medicationId, { quantity });
+      success('Medication restocked successfully!');
+      refetch();
+      setIsUpdateStockModalOpen(false);
+    } catch (err) {
+      showError(`Failed to restock medication: ${err.message}`);
+    }
+  };
+
+  const handleEditMedication = (medicationId) => {
+    const medication = medications.find(m => m.id === medicationId);
+    setSelectedMedication(medication);
+    setIsAddModalOpen(true);
+  };
+
+  // Statistics cards data
+  const medicationStats = [
+    { 
+      title: "Total Medications", 
+      count: statistics.totalMedications, 
+      icon: "💊", 
+      color: "blue",
+      description: "Total medications in inventory"
+    },
+    { 
+      title: "Low Stock Items", 
+      count: statistics.lowStockItems, 
+      icon: "⚠️", 
+      color: "orange",
+      description: "Items below minimum stock level"
+    },
+    { 
+      title: "Expiring Soon", 
+      count: statistics.expiringSoon, 
+      icon: "📅", 
+      color: "red",
+      description: "Items expiring within 30 days"
+    },
+    { 
+      title: "In Stock", 
+      count: statistics.inStock, 
+      icon: "✅", 
+      color: "green",
+      description: "Items with adequate stock"
+    }
+  ];
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-red-800 font-medium">Error loading medications</h3>
+                <p className="text-red-600 text-sm mt-1">{error}</p>
+              </div>
+              <button
+                onClick={() => refetch()}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+      <div className={`max-w-7xl mx-auto transition-all duration-300 ${
+        isAddModalOpen || isUpdateStockModalOpen ? 'blur-sm opacity-70' : 'blur-0 opacity-100'
+      }`}>
         {/* Header and Filters */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
           <div>
@@ -97,30 +171,6 @@ export default function Medications() {
           <div className="flex flex-col lg:flex-row gap-3 mt-4 lg:mt-0">
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-3">
-              {/* Date Range Filter */}
-              <div className="w-full sm:w-40">
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Date Range
-                </label>
-                <div className="relative">
-                  <select
-                    value={filters.dateRange}
-                    onChange={(e) => handleFilterChange('dateRange', e.target.value)}
-                    className="w-full pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 appearance-none bg-white hover:bg-gray-50 cursor-pointer"
-                  >
-                    <option value="last_7_days">Last 7 days</option>
-                    <option value="last_30_days">Last 30 days</option>
-                    <option value="last_90_days">Last 90 days</option>
-                    <option value="this_year">This Year</option>
-                  </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                    <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
               {/* Status Filter */}
               <div className="w-full sm:w-40">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -136,11 +186,58 @@ export default function Medications() {
                     <option value="in_stock">In Stock</option>
                     <option value="low_stock">Low Stock</option>
                     <option value="expiring_soon">Expiring Soon</option>
-                    <option value="out_of_stock">Out of Stock</option>
+                    <option value="expired">Expired</option>
                   </select>
                   <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
                     <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Category Filter */}
+              <div className="w-full sm:w-40">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Category
+                </label>
+                <div className="relative">
+                  <select
+                    value={filters.category}
+                    onChange={(e) => handleFilterChange('category', e.target.value)}
+                    className="w-full pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 appearance-none bg-white hover:bg-gray-50 cursor-pointer"
+                  >
+                    <option value="">All Categories</option>
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                    <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Search Filter */}
+              <div className="w-full sm:w-40">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Search
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={filters.search}
+                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                    placeholder="Search medications..."
+                    className="w-full pl-3 pr-10 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 bg-white hover:bg-gray-50"
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                   </div>
                 </div>
@@ -185,11 +282,12 @@ export default function Medications() {
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
           {medicationStats.map((stat, index) => (
-            <div key={index} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div key={index} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">{stat.title}</p>
                   <p className="text-2xl font-bold text-gray-900 mt-1">{stat.count}</p>
+                  <p className="text-xs text-gray-500 mt-1">{stat.description}</p>
                 </div>
                 <div className="text-3xl">
                   {stat.icon}
@@ -201,20 +299,56 @@ export default function Medications() {
 
         {/* Medication Inventory Table */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="mb-6">
+          <div className="mb-6 flex justify-between items-center">
             <h2 className="text-lg font-semibold text-gray-800">Medication Inventory</h2>
+            <button
+              onClick={clearFilters}
+              className="text-sm text-gray-600 hover:text-gray-900 px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200"
+            >
+              Clear Filters
+            </button>
           </div>
           
           <MedicationsTable
-            medications={medicationData}
-            loading={tableState.loading}
-            currentPage={tableState.currentPage}
-            totalPages={tableState.totalPages}
-            totalCount={tableState.totalCount}
+            medications={medications}
+            loading={loading}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalCount={totalCount}
             onPageChange={handlePageChange}
+            onView={(id) => console.log('View medication:', id)}
+            onEdit={(id) => console.log('Edit medication:', id)}
+            onRestock={(id) => {
+              // Open restock modal with selected medication
+              setIsUpdateStockModalOpen(true);
+              // You might want to store the selected medication ID
+            }}
+            onDelete={handleDeleteMedication}
           />
         </div>
       </div>
+
+      {/* Add Medication Modal */}
+      <NewMedicationModal
+        isOpen={isAddModalOpen}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setSelectedMedication(null);
+        }}
+        onSave={handleSaveMedication}
+        medicationToEdit={selectedMedication}
+        suppliers={["PharmaCo", "MedSupply", "HealthCorp", "Generic Suppliers"]}
+      />
+
+      {/* Update Stock Modal */}
+      {/* {isUpdateStockModalOpen && (
+        <UpdateStockModal
+          isOpen={isUpdateStockModalOpen}
+          onClose={() => setIsUpdateStockModalOpen(false)}
+          onRestock={handleRestockMedication}
+          medications={medications}
+        />
+      )} */}
     </div>
   );
 }
