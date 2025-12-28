@@ -1,5 +1,5 @@
-// components/settings/AddUserModal.jsx
 import React, { useState } from 'react';
+import keycloak from '../../config/keycloak';
 
 const AddUserModal = ({ isOpen, onClose, onUserCreated }) => {
   const [formData, setFormData] = useState({
@@ -8,7 +8,7 @@ const AddUserModal = ({ isOpen, onClose, onUserCreated }) => {
     firstName: '',
     lastName: '',
     password: '',
-    role: 'NURSE' // Default role
+    role: 'NURSE'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,18 +25,25 @@ const AddUserModal = ({ isOpen, onClose, onUserCreated }) => {
     setError('');
 
     try {
+      // Get the token from keycloak
+      const token = keycloak.token;
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await fetch('http://localhost:8080/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}` // Or get from your auth context
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(formData)
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create user');
+        throw new Error(errorData.message || `Failed to create user: ${response.status}`);
       }
 
       const newUser = await response.json();
