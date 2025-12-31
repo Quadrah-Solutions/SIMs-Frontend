@@ -79,7 +79,7 @@ export const userService = {
 
   async updateUser(userId, userData) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
         method: 'PUT',
         headers: getAuthHeader(),
         body: JSON.stringify(userData)
@@ -99,7 +99,7 @@ export const userService = {
 
   async deleteUser(userId) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
         method: 'DELETE',
         headers: getAuthHeader()
       });
@@ -118,7 +118,7 @@ export const userService = {
 
   async deactivateUser(userId) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${userId}/deactivate`, {
+      const response = await fetch(`${API_BASE_URL}/users/${userId}/deactivate`, {
         method: 'PUT',
         headers: getAuthHeader()
       });
@@ -137,7 +137,7 @@ export const userService = {
 
   async activateUser(userId) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${userId}/activate`, {
+      const response = await fetch(`${API_BASE_URL}/users/${userId}/activate`, {
         method: 'PUT',
         headers: getAuthHeader()
       });
