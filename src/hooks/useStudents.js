@@ -53,6 +53,29 @@ export const useStudents = () => {
     }
   };
 
+  const bulkUploadStudents = async (formData) => {
+    try {
+      setStudentsData(prev => ({ ...prev, loading: true, error: null }));
+      
+      // Use the studentService method
+      const result = await studentService.bulkUploadStudents(formData);
+      
+      console.log('Bulk upload successful:', result);
+      
+      // Refresh the student list
+      await refetch();
+      
+      return result;
+      
+    } catch (error) {
+      console.error('Error in bulk upload:', error);
+      setStudentsData(prev => ({ ...prev, error: error.message }));
+      throw error;
+    } finally {
+      setStudentsData(prev => ({ ...prev, loading: false }));
+    }
+  };
+
   const fetchGradesAndClasses = async () => {
     try {
       const { grades, classes } = await studentService.getGradesAndClasses();
@@ -111,6 +134,7 @@ export const useStudents = () => {
     filters,
     refetch,
     updateFilters,
+    bulkUploadStudents,
     createStudent
   };
 };

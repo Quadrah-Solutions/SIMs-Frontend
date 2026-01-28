@@ -1,6 +1,33 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
-const StudentFilters = ({ filters, grades, classes, onFilterChange, onAddStudent }) => {
+const StudentFilters = ({ filters, grades, classes, onFilterChange, onAddStudent, onBulkUpload }) => {
+  const [showOptions, setShowOptions] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowOptions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleAddIndividual = () => {
+    setShowOptions(false);
+    onAddStudent();
+  };
+
+  const handleBulkUpload = () => {
+    setShowOptions(false);
+    onBulkUpload();
+  };
+
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
       <div className="flex flex-col lg:flex-row gap-4 items-end lg:items-center">
@@ -79,17 +106,77 @@ const StudentFilters = ({ filters, grades, classes, onFilterChange, onAddStudent
           </div>
         </div>
 
-        {/* Add Student Button - Far right with spacing */}
-        <div className="w-full lg:w-auto lg:ml-8 relative">
-          <button
-            onClick={onAddStudent}
-            className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm hover:shadow-md"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span className="font-semibold">Add Student</span>
-          </button>
+        {/* Add Student Button with Dropdown */}
+        <div className="w-full lg:w-auto lg:ml-8 relative" ref={dropdownRef}>
+          <div className="relative">
+            <button
+              onClick={() => setShowOptions(!showOptions)}
+              onMouseEnter={() => setShowOptions(true)}
+              className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm hover:shadow-md group"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="font-semibold">Add Student</span>
+              <svg className={`w-4 h-4 transition-transform duration-200 ${showOptions ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* Dropdown Menu */}
+            {showOptions && (
+              <div 
+                className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-200 z-10 animate-fadeIn"
+                onMouseLeave={() => setShowOptions(false)}
+              >
+                <div className="py-1">
+                  {/* Individual Add Option */}
+                  <button
+                    onClick={handleAddIndividual}
+                    className="w-full px-4 py-3 text-left hover:bg-blue-50 transition duration-150 flex items-center gap-3 group"
+                  >
+                    <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition duration-150">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900">Add Individual</div>
+                      <div className="text-sm text-gray-500">Add one student at a time</div>
+                    </div>
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+
+                  {/* Divider */}
+                  <div className="border-t border-gray-100 my-1"></div>
+
+                  {/* Bulk Upload Option */}
+                  <button
+                    onClick={handleBulkUpload}
+                    className="w-full px-4 py-3 text-left hover:bg-green-50 transition duration-150 flex items-center gap-3 group"
+                  >
+                    <div className="p-2 bg-green-100 rounded-lg group-hover:bg-green-200 transition duration-150">
+                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900">Bulk Upload</div>
+                      <div className="text-sm text-gray-500">Upload Excel/CSV file</div>
+                    </div>
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Arrow pointing to button */}
+                <div className="absolute -top-2 right-4 w-4 h-4 bg-white transform rotate-45 border-t border-l border-gray-200"></div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

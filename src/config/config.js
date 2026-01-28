@@ -1,14 +1,8 @@
-// Configuration for the application
 const config = {
-  // API Configuration
-  API_BASE_URL: 'http://localhost:8080/api',
-  
-  // App Configuration
+  API_BASE_URL: '/api',
   APP_NAME: 'School Health System',
   APP_VERSION: '1.0.0',
-  
-  // Environment
-  ENV: 'development'
+  ENV: 'production',
 };
 
 export default config;

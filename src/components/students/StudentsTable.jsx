@@ -57,6 +57,28 @@ const StudentsTable = ({ students, loading, currentPage, totalPages, totalCount,
     };
   };
 
+  // Helper function to get boarding status display
+  const getBoardingStatusDisplay = (student) => {
+    const status = student.boardingStatus || student.status || 'BOARDING';
+    const isBoarding = status === 'BOARDING';
+    
+    return {
+      text: isBoarding ? 'Boarding' : 'Day Student',
+      badgeClass: isBoarding 
+        ? 'bg-purple-100 text-purple-800 border border-purple-200' 
+        : 'bg-green-100 text-green-800 border border-green-200',
+      icon: isBoarding ? (
+        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+        </svg>
+      ) : (
+        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+        </svg>
+      )
+    };
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -121,6 +143,7 @@ const StudentsTable = ({ students, loading, currentPage, totalPages, totalCount,
             <tbody className="bg-white divide-y divide-gray-200">
               {students.map((student) => {
                 const medicalStatus = getMedicalHistoryStatus(student);
+                const boardingStatus = getBoardingStatusDisplay(student);
                 
                 return (
                   <tr key={student.id} className="hover:bg-gray-50">
@@ -128,8 +151,12 @@ const StudentsTable = ({ students, loading, currentPage, totalPages, totalCount,
                       <div className="text-sm font-medium text-gray-900">
                         {student.name || `${student.firstName} ${student.lastName}`}
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        ID: {student.id}
+                      {/* Replaced ID with Boarding Status */}
+                      <div className="mt-1 flex items-center">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${boardingStatus.badgeClass}`}>
+                          {boardingStatus.icon}
+                          {boardingStatus.text}
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -268,7 +295,7 @@ const StudentsTable = ({ students, loading, currentPage, totalPages, totalCount,
         )}
       </div>
 
-      {/* Medical History Modal - FIXED: Using correct variable name */}
+      {/* Medical History Modal */}
       {showMedicalHistoryModal && selectedStudentForMedicalHistory && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-4 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-xl bg-white">

@@ -10,6 +10,7 @@ const NewStudentModal = ({ isOpen, onClose, onSave }) => {
     homeroom: '',
     dateOfBirth: '',
     gender: '',
+    boardingStatus: 'DAY',
     specialNotes: '',
     allergies: [],
     emergencyContacts: []
@@ -46,8 +47,29 @@ const NewStudentModal = ({ isOpen, onClose, onSave }) => {
     if (isOpen) {
       fetchGradesAndClasses();
       
-      // Generate student ID when modal opens
-      const generatedId = `STU-${new Date().getFullYear()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+      // Generate student ID following MG0 + 11 characters = 14 characters total
+      const generateStudentId = () => {
+        const prefix = "MG0";
+        
+        // Get current year (last 2 digits)
+        const currentYear = new Date().getFullYear().toString().slice(-2);
+        
+        // Generate random digits to make it 11 characters after prefix
+        // Using timestamp and random numbers for uniqueness
+        const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+        const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+        
+        // Combine: MG0 + YY + timestamp + random (ensure total 14 chars)
+        const id = `${prefix}${currentYear}${timestamp}${random}`;
+        
+        // Trim to exactly 14 characters if needed
+        return id.slice(0, 14);
+      };
+      
+      // Generate the ID
+      const generatedId = generateStudentId();
+      console.log('Generated Student ID:', generatedId, 'Length:', generatedId.length);
+      
       setFormData(prev => ({ ...prev, studentId: generatedId }));
       
       // Small delay to trigger animation
@@ -88,9 +110,19 @@ const NewStudentModal = ({ isOpen, onClose, onSave }) => {
     setError('');
     
     try {
-      const { grades: fetchedGrades, classes: fetchedClasses } = await studentService.getGradesAndClasses();
-      setGrades(fetchedGrades);
-      setClasses(fetchedClasses);
+      const result = await studentService.getGradesAndClasses();
+      
+      // Ensure we have arrays even if API returns null/undefined
+      const fetchedGrades = Array.isArray(result.grades) ? result.grades : [];
+      const fetchedClasses = Array.isArray(result.classes) ? result.classes : [];
+      
+      setGrades(fetchedGrades.length > 0 ? fetchedGrades : studentService.mockStudentData?.grades || []);
+      setClasses(fetchedClasses.length > 0 ? fetchedClasses : studentService.mockStudentData?.classes || []);
+      
+      if (fetchedGrades.length === 0 || fetchedClasses.length === 0) {
+        setError('Loaded empty data. Using default values.');
+      }
+      
     } catch (err) {
       setError('Failed to load grades and classes. Using default values.');
       console.error('Error in modal:', err);
@@ -284,16 +316,36 @@ const prepareStudentData = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Student ID</label>
-                  <input
-                    type="text"
-                    value={formData.studentId}
-                    onChange={(e) => handleChange('studentId', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 bg-gray-50 cursor-not-allowed"
-                    readOnly
-                    placeholder="Auto-generated"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Student ID is automatically generated</p>
+                  <div className="flex items-center">
+                    <div className="px-4 py-3 border border-r-0 border-gray-200 rounded-l-xl bg-gray-100 text-gray-700 font-medium">
+                      MG0
+                    </div>
+                    <input
+                      type="text"
+                      value={formData.studentId.replace('MG0', '')}
+                      onChange={(e) => {
+                        // Only allow numbers, max 11 digits
+                        const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 11);
+                        handleChange('studentId', `MG0${value}`);
+                      }}
+                      placeholder="11000501225"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 bg-white hover:bg-gray-50"
+                      maxLength={11}
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Enter 11 digits (Example: 11000501225)
+                  </p>
+                  {formData.studentId.length > 3 && (
+                    <p className={`text-xs mt-1 ${
+                      formData.studentId.length === 14 ? 'text-green-600' : 'text-yellow-600'
+                    }`}>
+                      Student ID: {formData.studentId} ({formData.studentId.length}/14 characters)
+                    </p>
+                  )}
                 </div>
+                {/* Gender field remains the same */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
                   <div className="relative">
@@ -316,6 +368,26 @@ const prepareStudentData = () => {
                     </div>
                   </div>
                 </div>
+              
+              {/* Boarding Status field - new field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Boarding Status</label>
+                <div className="relative">
+                  <select
+                    value={formData.boardingStatus}
+                    onChange={(e) => handleChange('boardingStatus', e.target.value)}
+                    className="w-full pl-4 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 appearance-none bg-white hover:bg-gray-50 cursor-pointer"
+                  >
+                    <option value="DAY">Day Student</option>
+                    <option value="BOARDING">Boarding Student</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+               </div> 
               </div>
             </div>
 
@@ -423,7 +495,7 @@ const prepareStudentData = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Homeroom</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Classroom</label>
                   <div className="relative">
                     <select
                       value={formData.homeroom}
@@ -432,7 +504,7 @@ const prepareStudentData = () => {
                       required
                       disabled={loading}
                     >
-                      <option value="">Select homeroom</option>
+                      <option value="">Select classroom</option>
                       {classes.map((className) => (
                         <option key={className} value={className}>
                           {className}

@@ -20,27 +20,42 @@ import Analytics from "./pages/Analytics";
 
 export default function App() {
   const [keycloakInitialized, setKeycloakInitialized] = useState(false);
+  const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
-    const initializeKeycloak = async () => {
-      try {
-        const authenticated = await keycloak.init({
-          onLoad: 'login-required', // Changed to 'login-required' to force login
-          checkLoginIframe: false, // Disable iframe check to avoid CORS issues
-          pkceMethod: 'S256',
-          scope: 'openid' // Add scope explicitly
-        });
+  const init = async () => {
+    try {
+      await initKeycloakOnce();
+      setKeycloakInitialized(true);
+    } catch (e) {
+      console.error("Keycloak init failed", e);
+      setAuthError("Authentication failed");
+      setKeycloakInitialized(true);
+    }
+  };
 
-        console.log('Keycloak initialized, authenticated:', authenticated);
-        setKeycloakInitialized(true);
-      } catch (error) {
-        console.error('Keycloak initialization failed', error);
-        setKeycloakInitialized(true);
-      }
-    };
+  init();
+}, []);
 
-    initializeKeycloak();
-  }, []);
+  // Show error if authentication failed
+  if (authError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center p-6 bg-red-50 rounded-lg">
+          <h2 className="text-xl font-semibold text-red-800 mb-2">
+            Authentication Error
+          </h2>
+          <p className="text-red-600 mb-4">{authError}</p>
+          <button
+            onClick={() => keycloak.login()}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Show loading spinner while Keycloak initializes
   if (!keycloakInitialized) {

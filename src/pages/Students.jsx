@@ -3,9 +3,9 @@ import { useStudents } from '../hooks/useStudents';
 import StudentFilters from '../components/students/StudentFilters';
 import StudentsTable from '../components/students/StudentsTable';
 import NewStudentModal from '../components/students/NewStudentModal';
+import BulkUploadModal from '../components/students/BulkUploadModal';
 import { useNotification } from '../components/common/NotificationProvider';
 import StudentMedicalHistory from '../components/students/StudentMedicalHistory';
-
 
 const Students = () => {
   const { 
@@ -20,20 +20,21 @@ const Students = () => {
     totalCount, 
     refetch, 
     updateFilters,
-    createStudent 
+    createStudent,
+    bulkUploadStudents  
   } = useStudents();
 
   const [isNewStudentModalOpen, setIsNewStudentModalOpen] = useState(false);
+  const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
+  const [bulkUploadLoading, setBulkUploadLoading] = useState(false); 
 
   const { success, error: showError } = useNotification();
 
   const [selectedStudentForMedicalHistory, setSelectedStudentForMedicalHistory] = useState(null);
 
-  // Add this function
   const openMedicalHistoryModal = (student) => {
     setSelectedStudentForMedicalHistory(student);
   };
-
 
   console.log('Students component state:', { 
     students, 
@@ -41,16 +42,25 @@ const Students = () => {
     classes, 
     loading, 
     error,
-    studentsCount: students ? students.length : 0  // ← Fixed this line
+    studentsCount: students ? students.length : 0
   });
 
-  const handleAddStudent = () => {
-    console.log('Add student clicked');
+  const handleAddIndividualStudent = () => {
+    console.log('Add individual student clicked');
     setIsNewStudentModalOpen(true);
+  };
+
+  const handleBulkUpload = () => {
+    console.log('Bulk upload clicked');
+    setIsBulkUploadModalOpen(true);
   };
 
   const handleCloseNewStudentModal = () => {
     setIsNewStudentModalOpen(false);
+  };
+
+  const handleCloseBulkUploadModal = () => {
+    setIsBulkUploadModalOpen(false);
   };
 
   const handleSaveStudent = async (studentData) => {
@@ -62,10 +72,37 @@ const Students = () => {
       // Show success notification
       success('Student added successfully!');
       // No need to manually refetch as createStudent already updates the state
-    } catch (error) {
-      console.error('Failed to save student:', error);
+    } catch (err) { // FIXED: Changed 'error' to 'err' to avoid conflict
+      console.error('Failed to save student:', err);
       // Show error notification
       showError(`Failed to save student: ${err.message}`);
+    }
+  };
+
+  const handleBulkUploadSubmit = async (file) => {
+    try {
+      console.log('Uploading bulk students file:', file.name);
+      setBulkUploadLoading(true); // Use local loading state
+      
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      // Call bulk upload API through your hook
+      await bulkUploadStudents(formData);
+      
+      setIsBulkUploadModalOpen(false);
+      success('Students uploaded successfully! File is being processed.');
+      
+      // Refresh the student list
+      refetch();
+      
+    } catch (err) {
+      console.error('Failed to upload bulk students:', err);
+      showError(`Failed to upload students: ${err.message}`);
+      throw err; // Re-throw to show error in modal
+    } finally {
+      setBulkUploadLoading(false); // Reset loading state
     }
   };
 
@@ -73,7 +110,7 @@ const Students = () => {
     refetch(page);
   };
 
-   if (loading && (!students || students.length === 0)) {
+  if (loading && (!students || students.length === 0)) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="max-w-7xl mx-auto">
@@ -115,7 +152,7 @@ const Students = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       {/* Apply blur to the main content when modal is open */}
       <div className={`max-w-7xl mx-auto transition-all duration-300 ${
-        isNewStudentModalOpen ? 'blur-sm opacity-70' : 'blur-0 opacity-100'
+        isNewStudentModalOpen || isBulkUploadModalOpen ? 'blur-sm opacity-70' : 'blur-0 opacity-100'
       }`}>
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Students</h1>
@@ -127,7 +164,8 @@ const Students = () => {
           grades={grades}
           classes={classes}
           onFilterChange={updateFilters}
-          onAddStudent={handleAddStudent}
+          onAddStudent={handleAddIndividualStudent}
+          onBulkUpload={handleBulkUpload}
         />
 
         <StudentsTable
@@ -140,7 +178,7 @@ const Students = () => {
         />
       </div>
 
-       {/* Medical History Modal */}
+      {/* Medical History Modal */}
       {selectedStudentForMedicalHistory && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-xl bg-white">
@@ -172,6 +210,13 @@ const Students = () => {
         isOpen={isNewStudentModalOpen}
         onClose={handleCloseNewStudentModal}
         onSave={handleSaveStudent}
+      />
+
+      {/* Bulk Upload Modal */}
+      <BulkUploadModal
+        isOpen={isBulkUploadModalOpen}
+        onClose={handleCloseBulkUploadModal}
+        onUpload={handleBulkUploadSubmit}
       />
     </div>
   );
