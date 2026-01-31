@@ -1,17 +1,19 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const QuickActions = () => {
+  const navigate = useNavigate();
     
   const actions = [
     {
       label: "New Visit",
       color: "bg-blue-600 hover:bg-blue-700",
-      onClick: () => console.log("New Visit clicked")
+      onClick: () => navigate('/visits?action=new')
     },
     {
       label: "Add Student", 
       color: "bg-green-600 hover:bg-green-700",
-      onClick: () => console.log("Add Student clicked")
+      onClick: () => navigate('/students?action=new')
     },
     {
       label: "Generate Report",

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useVisits } from '../hooks/useVisits';
 import { visitService } from '../services/visitService'; 
 import { useNotification } from '../components/common/NotificationProvider'; 
@@ -6,10 +6,13 @@ import { useAuth } from '../hooks/useAuth';
 import VisitFilters from '../components/visits/VisitFilters';
 import VisitsTable from '../components/visits/VisitsTable';
 import NewVisitModal from '../components/visits/NewVisitModal';
+import { useSearchParams } from 'react-router-dom'; // Add this import
 
 const Visits = () => {
   const [isNewVisitModalOpen, setIsNewVisitModalOpen] = useState(false);
   const { success, error: showError } = useNotification();
+  const [searchParams, setSearchParams] = useSearchParams(); // Add this
+  const actionParam = searchParams.get('action'); // Get the action parameter
   
   // Use the auth hook to get current user
   const { user, authenticated, loading: authLoading } = useAuth();
@@ -39,6 +42,15 @@ const Visits = () => {
     error,
     visitsCount: visits.length
   });
+
+  useEffect(() => {
+    if (actionParam === 'new') {
+      setIsNewVisitModalOpen(true);
+      // Clean up the URL parameter after opening modal
+      searchParams.delete('action');
+      setSearchParams(searchParams);
+    }
+  }, [actionParam, searchParams, setSearchParams]); // Add dependencies
 
   const handleNewVisit = () => {
     console.log('New Visit clicked');
@@ -76,6 +88,16 @@ const Visits = () => {
 
   const handleApplyFilters = () => {
     refetch(1);
+  };
+
+  // Add the handleCloseNewVisitModal function
+  const handleCloseNewVisitModal = () => {
+    setIsNewVisitModalOpen(false);
+    // Clean up URL parameters
+    if (searchParams.get('action') === 'new') {
+      searchParams.delete('action');
+      setSearchParams(searchParams);
+    }
   };
 
   // Get current user from auth
@@ -225,10 +247,10 @@ const Visits = () => {
         />
       </div>
 
-      {/* New Visit Modal */}
+      {/* New Visit Modal - Update onClose to use the new handler */}
       <NewVisitModal 
         isOpen={isNewVisitModalOpen}
-        onClose={() => setIsNewVisitModalOpen(false)}
+        onClose={handleCloseNewVisitModal} // Use the new handler
         onSave={handleSaveVisit}
         currentNurse={currentUser}
         students={students}

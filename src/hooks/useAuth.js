@@ -2,27 +2,28 @@ import { useState, useEffect } from 'react';
 import keycloak from '../config/keycloak';
 
 export const useAuth = () => {
-  const [authenticated, setAuthenticated] = useState(false);
+  const [authenticated, setAuthenticated] = useState(keycloak.authenticated || false);
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!keycloak.authenticated);
 
   useEffect(() => {
-    if (!keycloak.tokenParsed) {
+    console.log("🔍 useAuth useEffect running");
+    console.log("🔍 keycloak object:", keycloak);
+    console.log("🔍 keycloak.login:", keycloak?.login);
+    
+    if (keycloak.authenticated && keycloak.tokenParsed) {
+      const token = keycloak.tokenParsed;
+      setUser({
+        username: token.preferred_username || token.email,
+        email: token.email,
+        roles: token.realm_access?.roles || [],
+        name: token.name || token.preferred_username,
+      });
+      setAuthenticated(true);
       setLoading(false);
-      return;
+    } else {
+      setLoading(false);
     }
-
-    setAuthenticated(keycloak.authenticated);
-    const token = keycloak.tokenParsed;
-
-    setUser({
-      username: token.preferred_username,
-      email: token.email,
-      roles: token.realm_access?.roles || [],
-      name: token.name,
-    });
-
-    setLoading(false);
   }, []);
 
   return {

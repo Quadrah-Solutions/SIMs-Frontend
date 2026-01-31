@@ -3,28 +3,176 @@ import keycloak from '../config/keycloak';
 
 const API_BASE_URL = config.API_BASE_URL;
 
-
 // Add this helper function to your studentService if it's missing
 let gradesCache = null;
 let classesCache = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+// Mock data for development (fallback when API is not available)
+export const mockStudentData = {
+  students: [
+    { 
+      id: 1, 
+      name: "Ama Mensah", 
+      studentId: "STU001", 
+      grade: "Grade 7", 
+      className: "7A", 
+      allergies: "Peanuts, Dust",
+      boardingStatus: "BOARDING"
+    },
+    { 
+      id: 2, 
+      name: "Janice Esi", 
+      studentId: "STU002", 
+      grade: "Grade 8", 
+      className: "8B", 
+      allergies: "None",
+      boardingStatus: "DAY"
+    },
+    { 
+      id: 3, 
+      name: "Esi Boateng", 
+      studentId: "STU003", 
+      grade: "Grade 7", 
+      className: "7C", 
+      allergies: "Lactose",
+      boardingStatus: "BOARDING"
+    },
+    { 
+      id: 4, 
+      name: "Yaw Appiah", 
+      studentId: "STU004", 
+      grade: "Grade 9", 
+      className: "9A", 
+      allergies: "Penicillin",
+      boardingStatus: "DAY"
+    },
+    { 
+      id: 5, 
+      name: "Akua Ofori", 
+      studentId: "STU005", 
+      grade: "Grade 8", 
+      className: "8A", 
+      allergies: "Shellfish",
+      boardingStatus: "BOARDING"
+    }
+  ],
+  grades: ["Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"],
+  classes: ["7A", "7B", "7C", "8A", "8B", "8C", "9A", "9B", "9C", "10A", "10B", "11A", "11B", "12A", "12B"]
+};
+
+// Helper function to get the authorization header - FIXED VERSION
+const getAuthHeader = async () => {
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  
+  try {
+    // Ensure keycloak is initialized
+    if (keycloak && keycloak.authenticated) {
+      // Check if token needs refresh (30 seconds before expiry)
+      const refreshed = await keycloak.updateToken(30);
+      
+      if (refreshed) {
+        console.log('[KEYCLOAK] Token was refreshed');
+      }
+      
+      if (keycloak.token) {
+        headers['Authorization'] = `Bearer ${keycloak.token}`;
+        console.log('[KEYCLOAK] Token attached to request');
+      }
+    } else {
+      console.warn('[KEYCLOAK] Not authenticated or keycloak not initialized');
+    }
+  } catch (error) {
+    console.error('[KEYCLOAK] Error updating token:', error);
+    // Don't force login here, let the calling function handle it
+  }
+  
+  return headers;
+};
+
+// Helper function for retry logic with token refresh
+const fetchWithAuthRetry = async (url, options = {}, retryCount = 1) => {
+  const maxRetries = 2;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      // Get fresh auth headers for each attempt
+      const authHeaders = await getAuthHeader();
+      const finalOptions = {
+        ...options,
+        headers: {
+          ...authHeaders,
+          ...options.headers
+        }
+      };
+
+      // If body is FormData, remove Content-Type header
+            if (options.body instanceof FormData) {
+                delete finalOptions.headers['Content-Type'];
+            }
+      
+      console.log(`[API] Attempt ${attempt + 1} fetching: ${url}`);
+      const response = await fetch(url, finalOptions);
+      
+      if (response.status === 401 && attempt < maxRetries) {
+        console.log('[API] 401 received, forcing token refresh...');
+        
+        // Force token refresh
+        try {
+          const refreshed = await keycloak.updateToken(-1); // Force immediate refresh
+          if (refreshed) {
+            console.log('[KEYCLOAK] Token refreshed, retrying...');
+            continue; // Retry with new token
+          } else {
+            // Token refresh failed, need to login
+            console.log('[KEYCLOAK] Token refresh failed, redirecting to login');
+            keycloak.login();
+            break;
+          }
+        } catch (refreshError) {
+          console.error('[KEYCLOAK] Error refreshing token:', refreshError);
+          keycloak.login();
+          break;
+        }
+      }
+      
+      return response;
+      
+    } catch (error) {
+      console.error(`[API] Attempt ${attempt + 1} failed:`, error);
+      
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
+  }
+  
+  throw new Error(`Failed after ${retryCount} retries`);
+};
+
+// Cache function with auth support
 const fetchWithCache = async (endpoint, forceRefresh = false) => {
   const cacheKey = endpoint.includes('grades') ? 'grades' : 'classes';
   const cache = cacheKey === 'grades' ? gradesCache : classesCache;
   
   // Return cached data if not forcing refresh and cache is valid
   if (!forceRefresh && cache && (Date.now() - lastFetchTime < CACHE_DURATION)) {
+    console.log(`[CACHE] Using cached ${cacheKey} data`);
     return cache;
   }
   
   try {
     const url = `${API_BASE_URL}${endpoint}`;
-    console.log(`Fetching from: ${url}`);
+    console.log(`[API] Fetching ${cacheKey} from: ${url}`);
     
-    const response = await fetch(url, {
-      headers: getAuthHeader()
+    const response = await fetchWithAuthRetry(url, {
+      method: 'GET'
     });
     
     if (!response.ok) {
@@ -42,51 +190,64 @@ const fetchWithCache = async (endpoint, forceRefresh = false) => {
     }
     lastFetchTime = Date.now();
     
+    console.log(`[CACHE] ${cacheKey} data cached`);
     return data;
+    
   } catch (error) {
-    console.error(`Error fetching ${cacheKey}:`, error);
+    console.error(`[API] Error fetching ${cacheKey}:`, error);
     
     // Return cached data as fallback if available
     if (cache) {
-      console.log(`Using cached ${cacheKey} data due to API error`);
+      console.log(`[CACHE] Using cached ${cacheKey} data due to API error`);
       return cache;
     }
     
     // Return mock data if no cache
-    console.log(`Using mock ${cacheKey} data`);
+    console.log(`[MOCK] Using mock ${cacheKey} data`);
     return cacheKey === 'grades' 
       ? mockStudentData.grades 
       : mockStudentData.classes;
   }
 };
 
-// Helper function to get the authorization header
-const getAuthHeader = async () => {
-  try {
-    // Ensure keycloak is initialized and token is fresh
-    if (keycloak) {
-      // Check if token needs refresh
-      const isTokenValid = await keycloak.updateToken(30); // 30 seconds before expiry
-      
-      if (isTokenValid) {
-        console.log('Token is valid');
-      } else {
-        console.log('Token was refreshed');
-      }
-      
-      if (keycloak.token) {
-        return { 
-          'Authorization': `Bearer ${keycloak.token}`,
-          'Content-Type': 'application/json'
-        };
-      }
-    }
-  } catch (error) {
-    console.error('Error updating token:', error);
-    keycloak.login(); // Force re-login if token refresh fails
+// Mock students function - FIXED: Added to studentService object
+const getMockStudents = (page = 1, pageSize = 10, filters = {}) => {
+  console.log('[MOCK] Using mock student data');
+  
+  let filteredStudents = [...mockStudentData.students];
+  
+  // Apply filters to mock data
+  if (filters.search) {
+    const searchLower = filters.search.toLowerCase();
+    filteredStudents = filteredStudents.filter(student =>
+      student.name.toLowerCase().includes(searchLower) ||
+      student.studentId.toLowerCase().includes(searchLower)
+    );
   }
   
-  return { 'Content-Type': 'application/json' };
+  if (filters.grade) {
+    filteredStudents = filteredStudents.filter(student => 
+      student.grade === filters.grade
+    );
+  }
+  
+  if (filters.class) {
+    filteredStudents = filteredStudents.filter(student => 
+      student.className === filters.class
+    );
+  }
+  
+  // Calculate pagination
+  const startIndex = (page - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedStudents = filteredStudents.slice(startIndex, endIndex);
+  
+  return {
+    students: paginatedStudents,
+    totalPages: Math.ceil(filteredStudents.length / pageSize),
+    totalCount: filteredStudents.length,
+    currentPage: page
+  };
 };
 
 export const studentService = {
@@ -102,39 +263,13 @@ export const studentService = {
       if (filters.class) queryParams.append('className', filters.class);
 
       const url = `${API_BASE_URL}/students?${queryParams}`;
-      console.log('Fetching students from:', url);
+      console.log('[API] Fetching students from:', url);
       
-      // Get fresh headers
-      const headers = await getAuthHeader();
-      
-      const response = await fetch(url, {
-        headers: headers
+      const response = await fetchWithAuthRetry(url, {
+        method: 'GET'
       });
       
-      console.log('Response status:', response.status);
-      
-      if (response.status === 401) {
-        // Token might be expired, try to refresh
-        console.log('401 received, attempting token refresh...');
-        const refreshed = await keycloak.updateToken(-1); // Force refresh
-        
-        if (refreshed) {
-          // Retry with new token
-          const newHeaders = await getAuthHeader();
-          const retryResponse = await fetch(url, {
-            headers: newHeaders
-          });
-          
-          if (!retryResponse.ok) {
-            throw new Error(`Retry failed: ${retryResponse.status}`);
-          }
-          
-          return await this.processStudentResponse(retryResponse);
-        } else {
-          keycloak.login(); // Force re-authentication
-          return { students: [], totalPages: 0, totalCount: 0, currentPage: 1 };
-        }
-      }
+      console.log('[API] Response status:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -144,8 +279,8 @@ export const studentService = {
       return await this.processStudentResponse(response);
       
     } catch (error) {
-      console.error('Error fetching students:', error);
-      return this.getMockStudents(page, pageSize, filters);
+      console.error('[API] Error fetching students, falling back to mock data:', error);
+      return getMockStudents(page, pageSize, filters);
     }
   },
 
@@ -170,18 +305,31 @@ export const studentService = {
       students: transformedData,
       totalPages: pageData.totalPages || 1,
       totalCount: pageData.totalElements || 0,
-      currentPage: pageData.number + 1 || 1
+      currentPage: (pageData.number || 0) + 1
     };
   },
 
-  // Update your getGrades and getClasses methods to handle API failures better:
   async getClasses(forceRefresh = false) {
     try {
       const classRooms = await fetchWithCache('/classes/all', forceRefresh);
+      
+      // Handle different response formats
+      if (!Array.isArray(classRooms)) {
+        console.warn('[API] Classes response is not an array:', classRooms);
+        return mockStudentData.classes;
+      }
+      
       // Extract just the class names from the objects
-      return classRooms.map(classRoom => classRoom.className);
+      return classRooms.map(classRoom => {
+        if (typeof classRoom === 'string') return classRoom;
+        if (classRoom && typeof classRoom === 'object') {
+          return classRoom.className || classRoom.name || classRoom.class || 'Unknown';
+        }
+        return 'Unknown';
+      }).filter(Boolean); // Remove any null/undefined values
+      
     } catch (error) {
-      console.error('Error fetching classes, using mock data:', error);
+      console.error('[API] Error fetching classes, using mock data:', error);
       return mockStudentData.classes;
     }
   },
@@ -189,10 +337,24 @@ export const studentService = {
   async getGrades(forceRefresh = false) {
     try {
       const grades = await fetchWithCache('/grades/all', forceRefresh);
+      
+      // Handle different response formats
+      if (!Array.isArray(grades)) {
+        console.warn('[API] Grades response is not an array:', grades);
+        return mockStudentData.grades;
+      }
+      
       // Extract just the grade names from the objects
-      return grades.map(grade => grade.gradeName || grade.name || grade.grade);
+      return grades.map(grade => {
+        if (typeof grade === 'string') return grade;
+        if (grade && typeof grade === 'object') {
+          return grade.gradeName || grade.name || grade.grade || 'Unknown';
+        }
+        return 'Unknown';
+      }).filter(Boolean); // Remove any null/undefined values
+      
     } catch (error) {
-      console.error('Error fetching grades, using mock data:', error);
+      console.error('[API] Error fetching grades, using mock data:', error);
       return mockStudentData.grades;
     }
   },
@@ -209,7 +371,7 @@ export const studentService = {
         classes: classes || mockStudentData.classes 
       };
     } catch (error) {
-      console.error('Error fetching grades and classes:', error);
+      console.error('[API] Error fetching grades and classes:', error);
       // Return mock data instead of throwing
       return {
         grades: mockStudentData.grades,
@@ -220,37 +382,42 @@ export const studentService = {
 
   async bulkUploadStudents(formData) {
     try {
-      const token = keycloak?.token;
-      
-      const response = await fetch(`${API_BASE_URL}/students/bulk-upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-          // Don't set Content-Type for FormData
-        },
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Bulk upload failed: ${response.status} - ${errorText}`);
-      }
-      
-      return await response.json();
+        const url = `${API_BASE_URL}/students/bulk-upload`;
+        console.log('[API] Bulk upload to:', url);
+        
+        // Get fresh auth headers
+        const authHeaders = await getAuthHeader();
+        
+        // IMPORTANT: Remove Content-Type header entirely
+        // The browser will set it automatically with the boundary
+        delete authHeaders['Content-Type'];
+        
+        const response = await fetchWithAuthRetry(url, {
+            method: 'POST',
+            headers: authHeaders, // Don't add any other headers
+            body: formData, // FormData should be sent as-is
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Bulk upload failed: ${response.status} - ${errorText}`);
+        }
+        
+        return await response.json();
     } catch (error) {
-      console.error('Error in bulk upload:', error);
-      throw error;
+        console.error('[API] Error in bulk upload:', error);
+        throw error;
     }
-  },
+},
 
   async createStudent(studentData) {
     try {
-      const response = await fetch(`${API_BASE_URL}/students`, {
+      const url = `${API_BASE_URL}/students`;
+      console.log('[API] Creating student:', url);
+      
+      const response = await fetchWithAuthRetry(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader()
-        },
+        headers: await getAuthHeader(),
         body: JSON.stringify(studentData)
       });
       
@@ -261,16 +428,66 @@ export const studentService = {
       
       return await response.json();
     } catch (error) {
-      console.error('Error creating student:', error);
+      console.error('[API] Error creating student:', error);
       throw error;
     }
   },
+
+  // Add other CRUD methods as needed
+  async updateStudent(id, studentData) {
+    try {
+      const url = `${API_BASE_URL}/students/${id}`;
+      console.log('[API] Updating student:', url);
+      
+      const response = await fetchWithAuthRetry(url, {
+        method: 'PUT',
+        headers: await getAuthHeader(),
+        body: JSON.stringify(studentData)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to update student: ${response.status} - ${errorText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('[API] Error updating student:', error);
+      throw error;
+    }
+  },
+
+  async deleteStudent(id) {
+    try {
+      const url = `${API_BASE_URL}/students/${id}`;
+      console.log('[API] Deleting student:', url);
+      
+      const response = await fetchWithAuthRetry(url, {
+        method: 'DELETE',
+        headers: await getAuthHeader()
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to delete student: ${response.status} - ${errorText}`);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('[API] Error deleting student:', error);
+      throw error;
+    }
+  },
+
+  // Mock function made available
+  getMockStudents,
 
   // Utility methods
   clearCache() {
     gradesCache = null;
     classesCache = null;
     lastFetchTime = 0;
+    console.log('[CACHE] Cache cleared');
   },
 
   getCacheStatus() {
@@ -282,55 +499,5 @@ export const studentService = {
   }
 };
 
-// Mock data for development (fallback when API is not available)
-export const mockStudentData = {
-  students: [
-    { 
-      id: 1, 
-      name: "Ama Mensah", 
-      studentId: "STU001", 
-      grade: "Grade 7", 
-      className: "7A", 
-      allergies: "Peanuts, Dust",
-      boardingStatus: "BOARDING" // Add this
-    },
-    { 
-      id: 2, 
-      name: "Janice Esi", 
-      studentId: "STU002", 
-      grade: "Grade 8", 
-      className: "8B", 
-      allergies: "None",
-      boardingStatus: "DAY" // Add this
-    },
-    { 
-      id: 3, 
-      name: "Esi Boateng", 
-      studentId: "STU003", 
-      grade: "Grade 7", 
-      className: "7C", 
-      allergies: "Lactose",
-      boardingStatus: "BOARDING" // Add this
-    },
-    { 
-      id: 4, 
-      name: "Yaw Appiah", 
-      studentId: "STU004", 
-      grade: "Grade 9", 
-      className: "9A", 
-      allergies: "Penicillin",
-      boardingStatus: "DAY" // Add this
-    },
-    { 
-      id: 5, 
-      name: "Akua Ofori", 
-      studentId: "STU005", 
-      grade: "Grade 8", 
-      className: "8A", 
-      allergies: "Shellfish",
-      boardingStatus: "BOARDING" // Add this
-    }
-  ],
-  grades: ["Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"],
-  classes: ["7A", "7B", "7C", "8A", "8B", "8C", "9A", "9B", "9C", "10A", "10B", "11A", "11B", "12A", "12B"]
-};
+// For backward compatibility
+export default studentService;

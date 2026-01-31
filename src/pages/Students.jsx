@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Added useEffect import
 import { useStudents } from '../hooks/useStudents';
 import StudentFilters from '../components/students/StudentFilters';
 import StudentsTable from '../components/students/StudentsTable';
@@ -6,6 +6,7 @@ import NewStudentModal from '../components/students/NewStudentModal';
 import BulkUploadModal from '../components/students/BulkUploadModal';
 import { useNotification } from '../components/common/NotificationProvider';
 import StudentMedicalHistory from '../components/students/StudentMedicalHistory';
+import { useSearchParams } from 'react-router-dom'; // Added this import
 
 const Students = () => {
   const { 
@@ -32,6 +33,10 @@ const Students = () => {
 
   const [selectedStudentForMedicalHistory, setSelectedStudentForMedicalHistory] = useState(null);
 
+  // Add useSearchParams hook
+  const [searchParams, setSearchParams] = useSearchParams();
+  const actionParam = searchParams.get('action'); // Get the action parameter
+
   const openMedicalHistoryModal = (student) => {
     setSelectedStudentForMedicalHistory(student);
   };
@@ -45,6 +50,16 @@ const Students = () => {
     studentsCount: students ? students.length : 0
   });
 
+  // Add useEffect with dependencies
+  useEffect(() => {
+    if (actionParam === 'new') {
+      setIsNewStudentModalOpen(true);
+      // Clean up the URL parameter after opening modal
+      searchParams.delete('action');
+      setSearchParams(searchParams);
+    }
+  }, [actionParam, searchParams, setSearchParams]); // Added dependencies
+
   const handleAddIndividualStudent = () => {
     console.log('Add individual student clicked');
     setIsNewStudentModalOpen(true);
@@ -57,6 +72,11 @@ const Students = () => {
 
   const handleCloseNewStudentModal = () => {
     setIsNewStudentModalOpen(false);
+    // Clean up URL parameters
+    if (searchParams.get('action') === 'new') {
+      searchParams.delete('action');
+      setSearchParams(searchParams);
+    }
   };
 
   const handleCloseBulkUploadModal = () => {

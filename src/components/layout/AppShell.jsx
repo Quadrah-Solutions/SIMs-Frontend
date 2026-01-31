@@ -7,22 +7,27 @@ import {
   FiBell, 
 } from 'react-icons/fi';
 
-// Define the navigation items
-const sidebarItems = [
-  { path: "/", label: "Dashboard", icon: <FiHome /> },
-  { path: "/students", label: "Students", icon: <FiUsers /> },
-  { path: "/visits", label: "Visits", icon: <FiCalendar /> },
-  // { path: "/visits/new", label: "New Visit", icon: <FiPlusSquare /> },
-  { path: "/medications", label: "Medications", icon: <FiDroplet /> },
-  { path: "/analytics", label: "Reports & Analytics", icon: <FiBarChart2 /> },
-  { path: "/management", label: "User Management", icon: <FiSettings /> },
-];
-
 // -------------------------------------------------------------------
 // 1. Sidebar Component (Entire sidebar as a rounded card)
 // -------------------------------------------------------------------
-function Sidebar({ currentPath, collapsed, toggleSidebar }) {
+function Sidebar({ currentPath, collapsed, toggleSidebar, isAdmin }) {
   const navigate = useNavigate();
+
+  // Define the navigation items - Management only shown for admins
+  const sidebarItems = [
+    { path: "/", label: "Dashboard", icon: <FiHome />, alwaysShow: true },
+    { path: "/students", label: "Students", icon: <FiUsers />, alwaysShow: true },
+    { path: "/visits", label: "Visits", icon: <FiCalendar />, alwaysShow: true },
+    { path: "/medications", label: "Medications", icon: <FiDroplet />, alwaysShow: true },
+    { path: "/analytics", label: "Reports & Analytics", icon: <FiBarChart2 />, alwaysShow: true },
+    // Management is admin-only
+    { path: "/management", label: "User Management", icon: <FiSettings />, alwaysShow: false, adminOnly: true },
+  ];
+
+  // Filter navigation items based on user role
+  const filteredItems = sidebarItems.filter(item => 
+    item.alwaysShow || (item.adminOnly && isAdmin)
+  );
 
   return (
     <aside
@@ -49,6 +54,17 @@ function Sidebar({ currentPath, collapsed, toggleSidebar }) {
           <div className="flex flex-col flex-grow">
             <div className="font-extrabold text-2xl text-gray-900 leading-none">SYTE</div>
             <div className="text-xs text-gray-500 mt-1">Infirmary Management System</div>
+            {/* Show admin badge if user is admin */}
+            {isAdmin && !collapsed && (
+              <div className="mt-1">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Admin
+                </span>
+              </div>
+            )}
           </div>
         )}
         <button
@@ -68,7 +84,7 @@ function Sidebar({ currentPath, collapsed, toggleSidebar }) {
 
       {/* Navigation Links - Enhanced rounded cards */}
       <nav className="flex flex-col p-3 space-y-2 mt-4">
-        {sidebarItems.map((item) => (
+        {filteredItems.map((item) => (
           <button
             key={item.path}
             type="button"
@@ -107,6 +123,7 @@ function Sidebar({ currentPath, collapsed, toggleSidebar }) {
             {!collapsed && (
               <span className="relative z-10 font-semibold">
                 {item.label}
+                {/* REMOVED: Admin tag from navigation item */}
               </span>
             )}
           </button>
@@ -127,7 +144,7 @@ function Sidebar({ currentPath, collapsed, toggleSidebar }) {
 // -------------------------------------------------------------------
 // 2. Topbar Component (Updated to match sidebar card style)
 // -------------------------------------------------------------------
-function Topbar({ isSidebarCollapsed = false }) {
+function Topbar({ isSidebarCollapsed = false, isAdmin }) {
   const { user, logout } = useAuth();
   
   const leftPositionClass = isSidebarCollapsed ? 'lg:left-28' : 'lg:left-72'; // Adjusted for card margins
@@ -148,7 +165,7 @@ function Topbar({ isSidebarCollapsed = false }) {
         ${leftPositionClass} 
       `}
     >
-     <div className="flex items-center px-6">
+      <div className="flex items-center px-6">
         <img 
           src="/images/school-logo.png" 
           alt="School Logo" 
@@ -162,7 +179,6 @@ function Topbar({ isSidebarCollapsed = false }) {
           <span className="text-white font-bold text-xs">SCHOOL</span>
         </div>
       </div>
-
 
       <div className="flex items-center px-6 space-x-3">
         {/* Settings Button - Rounded Card with Hover */}
@@ -180,6 +196,14 @@ function Topbar({ isSidebarCollapsed = false }) {
             <span className="font-semibold text-gray-900 ml-1">
               {user?.name || 'User'}
             </span>
+            {isAdmin && (
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                Admin
+              </span>
+            )}
           </div>
         </div>
         
@@ -202,7 +226,14 @@ function Topbar({ isSidebarCollapsed = false }) {
 export default function AppShell() {
   const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); 
+  const { user } = useAuth();
   
+  // Check if user is admin based on roles
+  const isAdmin = user?.roles?.some(role => 
+    role.toLowerCase() === 'admin' || 
+    role.toLowerCase().includes('admin')
+  ) || false;
+
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
@@ -217,10 +248,14 @@ export default function AppShell() {
         currentPath={location.pathname} 
         collapsed={isSidebarCollapsed}
         toggleSidebar={toggleSidebar}
+        isAdmin={isAdmin}
       />
 
       {/* Topbar as Card */}
-      <Topbar isSidebarCollapsed={isSidebarCollapsed} />
+      <Topbar 
+        isSidebarCollapsed={isSidebarCollapsed} 
+        isAdmin={isAdmin}
+      />
 
       {/* Main Content Wrapper - Adjusted for card layout */}
       <div 

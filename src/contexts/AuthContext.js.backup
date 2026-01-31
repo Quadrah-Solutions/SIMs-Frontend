@@ -1,0 +1,87 @@
+// contexts/AuthContext.js - COMPLETELY CLEAN VERSION
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import keycloak from '../config/keycloak';
+
+const AuthContext = createContext({});
+
+export const useAuth = () => {
+  return useContext(AuthContext);
+};
+
+export const AuthProvider = ({ children }) => {
+  const [authenticated, setAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        console.log('Initializing Keycloak...');
+        
+        const auth = await keycloak.init({
+          onLoad: 'check-sso',
+          checkLoginIframe: false,
+          pkceMethod: 'S256'
+        });
+        
+        console.log('Keycloak initialized:', auth);
+        setInitialized(true);
+        setAuthenticated(auth);
+        
+        if (auth && keycloak.tokenParsed) {
+          const token = keycloak.tokenParsed;
+          setUser({
+            username: token.preferred_username || token.email,
+            email: token.email,
+            roles: token.realm_access?.roles || [],
+            name: token.name || token.preferred_username
+          });
+        }
+      } catch (error) {
+        console.error('Keycloak initialization failed:', error);
+        setInitialized(true);
+        setAuthenticated(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
+  }, []);
+
+  const login = () => {
+    if (initialized) {
+      return keycloak.login();
+    } else {
+      console.warn('Keycloak not initialized yet');
+      return keycloak.init({ onLoad: 'login-required' });
+    }
+  };
+
+  const logout = () => {
+    if (initialized) {
+      return keycloak.logout();
+    }
+  };
+
+  const hasRole = (role) => {
+    return initialized && authenticated && keycloak.hasRealmRole(role);
+  };
+
+  const value = {
+    authenticated,
+    loading,
+    user,
+    login,
+    logout,
+    hasRole,
+    initialized
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
