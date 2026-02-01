@@ -20,7 +20,7 @@ export default function Login() {
       await login();
     } catch (error) {
       console.error('Login failed:', error);
-      const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL || "http://localhost:8180";
+      const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL || "http://KBs-MacBook-Pro.local:8180";
       const realm = import.meta.env.VITE_KEYCLOAK_REALM || "SIMs";
       const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || "sims_frontend";
       const redirectUri = encodeURIComponent(window.location.origin);

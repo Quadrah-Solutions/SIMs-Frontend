@@ -66,7 +66,7 @@ const Analytics = () => {
       };
       
       // Generate and download PDF
-      const fileName = await pdfExportService.generateAnalyticsReport(exportData, filters);
+      const fileName = await pdfExportService.generateMedicalReport(exportData, filters);
       
       success(`Report "${fileName}" downloaded successfully!`);
       

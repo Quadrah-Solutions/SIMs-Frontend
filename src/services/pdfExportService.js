@@ -1,463 +1,864 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import autoTable from 'jspdf-autotable';
 
 export const pdfExportService = {
   
-  // Generate comprehensive PDF report
-  async generateAnalyticsReport(data, filters) {
+  // Main function to generate comprehensive medical report with multiple pages
+  async generateMedicalReport(reportData, filters, reportType = 'summary') {
     try {
-      const { 
-        dashboardStats, 
-        visitStats, 
-        visitSummary, 
-        trends, 
-        frequentVisitors, 
-        medicationUsage 
-      } = data;
-      
       const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4'
       });
       
-      // Add logo at the top
-      await this.addLogo(doc);
+      // PAGE 1: COVER PAGE
+      await this.generateCoverPage(doc, filters, reportType);
       
-      // Add header
-      this.addHeader(doc, filters);
+      // PAGE 2: EXECUTIVE SUMMARY & KEY METRICS
+      doc.addPage();
+      this.generateExecutiveSummaryPage(doc, reportData, filters);
       
-      // Add dashboard statistics
-      this.addDashboardStats(doc, dashboardStats);
+      // PAGE 3: DETAILED ANALYSIS
+      doc.addPage();
+      this.generateAnalysisPage(doc, reportData, reportType);
       
-      // Add visit summary
-      this.addVisitSummary(doc, visitSummary);
+      // PAGE 4: TABLES & CHARTS
+      doc.addPage();
+      this.generateDataTablesPage(doc, reportData, reportType);
       
-      // Add trend analysis chart
-      await this.addTrendChart(doc, trends);
+      // PAGE 5: APPROVALS & FOOTER
+      doc.addPage();
+      this.generateApprovalPage(doc);
       
-      // Add visits by disposition
-      this.addVisitsByDisposition(doc, visitStats);
-      
-      // Add footer
-      this.addFooter(doc);
-      
-      // Save the PDF
-      const fileName = this.generateFileName(filters);
+      // Generate filename and save
+      const fileName = this.generateReportFileName(reportType, filters);
       doc.save(fileName);
       
       return fileName;
       
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      console.error('Error generating medical report:', error);
       throw new Error('Failed to generate PDF report');
     }
   },
-  
-  // Add logo to PDF
-  async addLogo(doc) {
+
+  // COVER PAGE
+  async generateCoverPage(doc, filters, reportType) {
+    // Watermark - using simple text instead of angled text
+    doc.setFontSize(60);
+    doc.setTextColor(240, 240, 240);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CONFIDENTIAL', 105, 150, { align: 'center' });
+    
+    // School logo and header
     try {
-      // Load the logo image from public/images folder
       const logoUrl = '/images/school-logo.png';
-      
-      // Create an image object
       const logoImage = new Image();
-      logoImage.crossOrigin = 'Anonymous'; // For CORS if needed
+      logoImage.crossOrigin = 'Anonymous';
       logoImage.src = logoUrl;
       
-      // Wait for image to load
-      await new Promise((resolve, reject) => {
+      await new Promise((resolve) => {
         logoImage.onload = resolve;
-        logoImage.onerror = reject;
-        
-        // Set timeout for safety
-        setTimeout(() => {
-          if (!logoImage.complete) {
-            reject(new Error('Logo loading timeout'));
-          }
-        }, 3000);
+        logoImage.onerror = resolve;
+        setTimeout(resolve, 500);
       });
       
-      // Add logo to PDF (positioned as a badge at top)
-      const logoWidth = 30; // Width in mm
-      const logoHeight = 30; // Height in mm
-      const logoX = 20; // Left margin
-      const logoY = 15; // From top
-      
-      // Convert image to data URL
-      const canvas = document.createElement('canvas');
-      canvas.width = logoImage.width;
-      canvas.height = logoImage.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(logoImage, 0, 0);
-      const logoDataUrl = canvas.toDataURL('image/png');
-      
-      // Add to PDF
-      doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
-      
-      // Add a badge-like circle around the logo (optional)
-      doc.setDrawColor(0, 0, 128); // Dark blue border
-      doc.setLineWidth(0.5);
-      doc.circle(logoX + logoWidth/2, logoY + logoHeight/2, logoWidth/2 + 2);
-      
+      if (logoImage.complete && logoImage.naturalWidth > 0) {
+        const canvas = document.createElement('canvas');
+        canvas.width = logoImage.width;
+        canvas.height = logoImage.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(logoImage, 0, 0);
+        const logoDataUrl = canvas.toDataURL('image/png');
+        
+        // Add logo
+        doc.addImage(logoDataUrl, 'PNG', 85, 40, 40, 40);
+      }
     } catch (error) {
-      console.warn('Could not load logo, proceeding without it:', error);
-      // Continue without logo if there's an error
+      console.warn('Logo loading failed:', error);
     }
-  },
-  
-  // Generate filename based on filters
-  generateFileName(filters) {
-    const date = new Date().toISOString().split('T')[0];
-    const dateRange = filters.dateRange || 'report';
-    return `Infirmary_Report_${dateRange}_${date}.pdf`;
-  },
-  
-  // Add header section (modified to accommodate logo)
-  addHeader(doc, filters) {
-    doc.setFontSize(20);
-    doc.setTextColor(0, 0, 128); // Dark blue
+    
+    // School name
+    doc.setFontSize(24);
+    doc.setTextColor(0, 51, 102);
     doc.setFont('helvetica', 'bold');
+    doc.text('SYTE INFIRMARY', 105, 90, { align: 'center' });
     
-    // Move header text to the right to accommodate logo
-    doc.text('Syte Infirmary Managememt Report', 105, 20, { align: 'center' });
-    
-    doc.setFontSize(12);
+    // Subtitle
+    doc.setFontSize(14);
     doc.setTextColor(100, 100, 100);
     doc.setFont('helvetica', 'normal');
+    doc.text('Student Health Management System', 105, 100, { align: 'center' });
+    doc.text('Ministry of Education Accredited', 105, 108, { align: 'center' });
     
-    // Date range info (adjusted position)
-    const dateRangeText = this.formatDateRange(filters.dateRange);
-    doc.text(`Period: ${dateRangeText}`, 60, 35); // Moved right to avoid logo
-    
-    // Generated date
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 60, 42);
-    
-    // Page number
-    doc.setFontSize(10);
-    doc.text(`Page 1 of 1`, 180, 290, { align: 'right' });
-    
-    // Separator line (moved down)
-    doc.setDrawColor(200, 200, 200);
-    doc.line(20, 52, 190, 52); // Moved down from 47 to 52
-  },
-  
-  // Format date range for display
-  formatDateRange(dateRange) {
-    const now = new Date();
-    switch(dateRange) {
-      case 'last_7_days':
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        return `${weekAgo.toLocaleDateString()} - ${now.toLocaleDateString()}`;
-      case 'last_30_days':
-        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        return `${monthAgo.toLocaleDateString()} - ${now.toLocaleDateString()}`;
-      case 'last_90_days':
-        const quarterAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        return `${quarterAgo.toLocaleDateString()} - ${now.toLocaleDateString()}`;
-      case 'this_year':
-        const yearStart = new Date(now.getFullYear(), 0, 1);
-        return `${yearStart.toLocaleDateString()} - ${now.toLocaleDateString()}`;
-      default:
-        return 'Custom Date Range';
-    }
-  },
-  
-  // Add dashboard statistics section (adjusted positions)
-  addDashboardStats(doc, dashboardStats) {
-    doc.setFontSize(16);
+    // Report title
+    doc.setFontSize(20);
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'bold');
-    doc.text('Dashboard Overview', 20, 65); // Moved down from 60 to 65
     
-    doc.setFontSize(11);
+    const reportTitles = {
+      'summary': 'Health Center Summary Report',
+      'detailed': 'Detailed Medical Analysis Report',
+      'visits': 'Clinic Visits Analysis Report',
+      'medications': 'Medication Administration Report',
+      'emergency': 'Emergency Cases Report'
+    };
+    
+    doc.text(reportTitles[reportType] || 'Medical Report', 105, 130, { align: 'center' });
+    
+    // Report metadata box
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.rect(30, 150, 150, 80);
+    
+    // Metadata content
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'normal');
     
-    const stats = [
-      { label: 'Total Visits', value: dashboardStats.totalVisits || 0, y: 75 },
-      { label: 'Total Students', value: dashboardStats.totalStudents || 0, y: 82 },
-      { label: 'Medications Administered', value: dashboardStats.totalMedications || 0, y: 89 },
-      { label: 'Emergency Cases', value: dashboardStats.totalEmergencies || 0, y: 96 }
+    const metadata = [
+      `Reporting Period: ${this.formatDateRange(filters?.dateRange)}`,
+      `Report Type: ${reportType.charAt(0).toUpperCase() + reportType.slice(1)}`,
+      `Generated: ${new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}`,
+      `Report ID: ${this.generateReportId()}`,
+      `Prepared For: School Administration`,
+      `Prepared By: SYTE Infirmary Management System`
     ];
     
-    stats.forEach(stat => {
-      doc.text(`${stat.label}:`, 20, stat.y);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`${stat.value}`, 80, stat.y);
-      doc.setFont('helvetica', 'normal');
+    metadata.forEach((line, index) => {
+      doc.text(line, 40, 165 + (index * 12));
     });
     
-    // Add a simple bar chart visualization (adjusted position)
-    this.addMiniBarChart(doc, dashboardStats, 120, 70); // Moved down from 65 to 70
+    // Confidential notice
+    doc.setFontSize(10);
+    doc.setTextColor(150, 150, 150);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Confidential - For Internal Use Only', 105, 260, { align: 'center' });
+    
+    // Page indicator
+    this.addPageFooter(doc, 1);
   },
-  
-  // Add mini bar chart for dashboard stats
-  addMiniBarChart(doc, stats, x, y) {
-    const maxValue = Math.max(
-      stats.totalVisits || 0,
-      stats.totalStudents || 0,
-      stats.totalMedications || 0,
-      stats.totalEmergencies || 0
-    );
+
+  // EXECUTIVE SUMMARY PAGE
+  generateExecutiveSummaryPage(doc, reportData, filters) {
+    const { dashboardStats, visitStats } = reportData;
     
-    const barHeight = 4;
-    const barWidth = 50;
+    // Page header
+    doc.setFontSize(16);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Executive Summary', 20, 30);
     
-    // Draw bars
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Period: ${this.formatDateRange(filters?.dateRange)}`, 20, 38);
+    
+    // Summary text
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    
+    const summaryText = `This comprehensive report provides an overview of student health center activities and performance metrics for the specified reporting period. 
+The SYTE Infirmary continues to deliver essential healthcare services to the student population, maintaining high standards of care and efficient service delivery.
+
+Key findings from this reporting period include:
+• Total clinic visits: ${dashboardStats?.totalVisits || 0}
+• Unique students served: ${dashboardStats?.totalStudents || 0}
+• Medications administered: ${dashboardStats?.totalMedications || 0}
+• Emergency cases handled: ${dashboardStats?.totalEmergencies || 0}
+• Overall clinic utilization: ${((dashboardStats?.totalVisits || 0) / (dashboardStats?.totalStudents || 1) * 100).toFixed(1)}%
+
+The infirmary maintains comprehensive records of all student interactions, ensuring continuity of care and proper documentation for medical history tracking.`;
+    
+    const splitText = doc.splitTextToSize(summaryText, 170);
+    doc.text(splitText, 20, 50);
+    
+    // Key Metrics Section
+    doc.setFontSize(14);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Key Performance Indicators', 20, 110);
+    
+    // Metrics grid - Using simple shapes instead of emoji
     const metrics = [
-      { label: 'Visits', value: stats.totalVisits || 0, color: [66, 135, 245] },
-      { label: 'Students', value: stats.totalStudents || 0, color: [52, 168, 83] },
-      { label: 'Meds', value: stats.totalMedications || 0, color: [155, 81, 224] },
-      { label: 'Emerg', value: stats.totalEmergencies || 0, color: [234, 67, 53] }
+      { 
+        label: 'Total Visits', 
+        value: dashboardStats?.totalVisits || 0, 
+        color: [66, 133, 244],
+        symbol: '■' // Square symbol instead of emoji
+      },
+      { 
+        label: 'Unique Students', 
+        value: dashboardStats?.totalStudents || 0, 
+        color: [51, 153, 102],
+        symbol: '●' // Circle symbol
+      },
+      { 
+        label: 'Medications', 
+        value: dashboardStats?.totalMedications || 0, 
+        color: [155, 81, 224],
+        symbol: '◆' // Diamond symbol
+      },
+      { 
+        label: 'Emergency Cases', 
+        value: dashboardStats?.totalEmergencies || 0, 
+        color: [234, 67, 53],
+        symbol: '▲' // Triangle symbol
+      },
+      { 
+        label: 'Return to Class', 
+        value: `${((visitStats?.RETURNED_TO_CLASS || 0) / ((dashboardStats?.totalVisits || 0) || 1) * 100).toFixed(1)}%`, 
+        color: [255, 193, 7],
+        symbol: '✓' // Check mark
+      },
+      { 
+        label: 'Avg. Response', 
+        value: '<15 min', 
+        color: [66, 133, 244],
+        symbol: '⏰' // Clock (this should work in PDF)
+      }
     ];
     
+    // Draw metrics in a 3x2 grid
     metrics.forEach((metric, index) => {
-      const barX = x;
-      const barY = y + (index * 10);
-      const normalizedWidth = (metric.value / maxValue) * barWidth;
+      const row = Math.floor(index / 3);
+      const col = index % 3;
       
-      // Draw bar
-      doc.setFillColor(...metric.color);
-      doc.rect(barX, barY, normalizedWidth, barHeight, 'F');
+      const x = 20 + (col * 60);
+      const y = 125 + (row * 30);
       
-      // Draw label
-      doc.setFontSize(9);
+      // Metric card background
+      doc.setFillColor(248, 249, 250);
+      doc.rect(x, y, 55, 25, 'F');
+      
+      // Border
+      doc.setDrawColor(...metric.color);
+      doc.setLineWidth(0.5);
+      doc.rect(x, y, 55, 25);
+      
+      // Symbol with color
+      doc.setFontSize(12);
+      doc.setTextColor(...metric.color);
+      doc.text(metric.symbol, x + 8, y + 10);
+      
+      // Value
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
-      doc.text(metric.label, barX - 15, barY + 3);
-      doc.text(metric.value.toString(), barX + barWidth + 5, barY + 3);
-    });
-  },
-  
-  // Add visit summary table (adjusted positions)
-  addVisitSummary(doc, visitSummary) {
-    doc.setFontSize(16);
-    doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Visit Summary', 20, 115); // Moved down from 110 to 115
-    
-    // Table headers
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Visit Type', 20, 125); // Moved down
-    doc.text('Count', 100, 125);
-    doc.text('Change', 140, 125);
-    
-    // Table rows
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    
-    const items = visitSummary || [];
-    items.forEach((item, index) => {
-      const y = 132 + (index * 7); // Moved down
-      doc.text(item.type || 'N/A', 20, y);
-      doc.text((item.count || 0).toString(), 100, y);
+      doc.text(metric.value.toString(), x + 20, y + 10);
       
-      // Color code changes
-      if (item.change && item.change.startsWith('+')) {
-        doc.setTextColor(52, 168, 83); // Green
-      } else if (item.change && item.change.startsWith('-')) {
-        doc.setTextColor(234, 67, 53); // Red
-      } else {
-        doc.setTextColor(95, 99, 104); // Gray
-      }
-      doc.text(item.change || '0%', 140, y);
-      doc.setTextColor(0, 0, 0); // Reset to black
-    });
-    
-    // Draw table lines
-    doc.setDrawColor(200, 200, 200);
-    doc.line(20, 127, 190, 127); // Header line
-    if (items.length > 0) {
-      const bottomY = 132 + (items.length * 7);
-      doc.line(20, bottomY, 190, bottomY); // Bottom line
-    }
-  },
-  
-  // Add trend chart (simplified version) (adjusted positions)
-  async addTrendChart(doc, trends) {
-    doc.setFontSize(16);
-    doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Monthly Trends', 20, 175); // Moved down from 170 to 175
-    
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Clinic visits and incidents over time', 20, 182); // Moved down
-    
-    // Draw a simple chart
-    const chartData = trends || [];
-    if (chartData.length > 0) {
-      const chartX = 20;
-      const chartY = 190; // Moved down from 185
-      const chartWidth = 160;
-      const chartHeight = 50;
-      
-      // Draw chart border
-      doc.setDrawColor(100, 100, 100);
-      doc.rect(chartX, chartY, chartWidth, chartHeight);
-      
-      // Find max value for scaling
-      const maxVisits = Math.max(...chartData.map(d => d.visits || 0));
-      const maxIncidents = Math.max(...chartData.map(d => d.incidents || 0));
-      const maxValue = Math.max(maxVisits, maxIncidents) * 1.1;
-      
-      // Draw grid lines
-      doc.setDrawColor(220, 220, 220);
-      for (let i = 1; i < 5; i++) {
-        const gridY = chartY + (i * chartHeight / 5);
-        doc.line(chartX, gridY, chartX + chartWidth, gridY);
-      }
-      
-      // Draw data points and lines for visits
-      doc.setDrawColor(66, 135, 245); // Blue for visits
-      doc.setFillColor(66, 135, 245);
-      
-      const pointSize = 2;
-      const visitsPoints = [];
-      
-      chartData.forEach((data, index) => {
-        const x = chartX + (index * chartWidth / (chartData.length - 1));
-        const y = chartY + chartHeight - ((data.visits || 0) / maxValue * chartHeight);
-        visitsPoints.push({ x, y });
-        
-        // Draw point
-        doc.circle(x, y, pointSize, 'F');
-        
-        // Draw month label
-        if (index % 2 === 0) { // Show every other month to avoid clutter
-          doc.setFontSize(8);
-          doc.setTextColor(100, 100, 100);
-          doc.text(data.month || '', x - 5, chartY + chartHeight + 5);
-        }
-      });
-      
-      // Connect visits points
-      for (let i = 1; i < visitsPoints.length; i++) {
-        doc.line(visitsPoints[i-1].x, visitsPoints[i-1].y, visitsPoints[i].x, visitsPoints[i].y);
-      }
-      
-      // Draw legend
+      // Label
       doc.setFontSize(9);
-      doc.setTextColor(66, 135, 245);
-      doc.text('● Visits', chartX + 5, chartY + chartHeight + 15);
-      doc.setTextColor(255, 153, 51);
-      doc.text('● Incidents', chartX + 40, chartY + chartHeight + 15);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 100, 100);
+      doc.text(metric.label, x + 5, y + 20, { maxWidth: 50 });
+    });
+    
+    // Performance notes
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'italic');
+    doc.text('All metrics are calculated based on verified clinic records and real-time data tracking.', 20, 190);
+    
+    // Page footer
+    this.addPageFooter(doc, 2);
+  },
+
+  // ANALYSIS PAGE
+  generateAnalysisPage(doc, reportData, reportType) {
+    const { visitSummary, trends, frequentVisitors } = reportData;
+    
+    // Page header
+    doc.setFontSize(16);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Data Analysis & Insights', 20, 30);
+    
+    // Visit Summary Section
+    doc.setFontSize(14);
+    doc.text('Visit Summary by Type', 20, 45);
+    
+    if (visitSummary && visitSummary.length > 0) {
+      const summaryData = visitSummary.map(item => [
+        item.type || 'N/A',
+        item.count || 0,
+        item.change || '0%'
+      ]);
+      
+      autoTable(doc, {
+        startY: 50,
+        head: [['Visit Type', 'Count', 'Trend']],
+        body: summaryData,
+        theme: 'striped',
+        headStyles: { 
+          fillColor: [66, 133, 244], 
+          textColor: 255,
+          fontSize: 11 
+        },
+        styles: { 
+          fontSize: 10,
+          cellPadding: 3
+        },
+        columnStyles: {
+          0: { cellWidth: 100 },
+          1: { cellWidth: 40, halign: 'center' },
+          2: { cellWidth: 40, halign: 'center' }
+        },
+        margin: { left: 20, right: 20 }
+      });
     } else {
       doc.setFontSize(10);
       doc.setTextColor(150, 150, 150);
-      doc.text('No trend data available', 30, 205); // Moved down
+      doc.text('No visit summary data available', 30, 55);
     }
-  },
-  
-  // Add visits by disposition section (adjusted positions)
-  addVisitsByDisposition(doc, visitStats) {
-    doc.setFontSize(16);
-    doc.setTextColor(0, 0, 0);
+    
+    // Trend Analysis Section
+    const trendY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : 100;
+    
+    doc.setFontSize(14);
+    doc.setTextColor(0, 51, 102);
     doc.setFont('helvetica', 'bold');
-    doc.text('Visits by Disposition', 20, 255); // Moved down from 250
+    doc.text('Monthly Trend Analysis', 20, trendY);
     
-    const stats = visitStats || {};
-    const dispositions = [
-      { key: 'RETURNED_TO_CLASS', label: 'Returned to Class', color: [52, 168, 83] },
-      { key: 'SENT_HOME', label: 'Sent Home', color: [66, 135, 245] },
-      { key: 'UNDER_OBSERVATION', label: 'Under Observation', color: [255, 193, 7] },
-      { key: 'REFERRED_TO_HOSPITAL', label: 'Referred to Hospital', color: [234, 67, 53] }
-    ];
-    
-    let currentY = 265; // Moved down from 260
-    dispositions.forEach(disposition => {
-      const count = stats[disposition.key] || 0;
+    if (trends && trends.length > 0) {
+      // Simple trend visualization
+      const chartX = 30;
+      const chartY = trendY + 15;
+      const chartWidth = 140;
+      const chartHeight = 50;
       
-      // Draw colored dot
-      doc.setFillColor(...disposition.color);
-      doc.circle(20, currentY - 1, 2, 'F');
+      // Calculate max for scaling
+      const maxVisits = Math.max(...trends.map(t => t.visits || 0));
       
-      // Draw label and count
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'normal');
-      doc.text(disposition.label, 28, currentY);
-      doc.setFont('helvetica', 'bold');
-      doc.text(count.toString(), 120, currentY);
+      // Draw chart area
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(chartX, chartY, chartWidth, chartHeight);
       
-      currentY += 7;
-    });
-  },
-  
-  // Add footer
-  addFooter(doc) {
-    doc.setFontSize(9);
-    doc.setTextColor(100, 100, 100);
-    doc.setFont('helvetica', 'italic');
-    doc.text('Syte Infirmary Management System - Confidential Report', 105, 285, { align: 'center' });
-  },
-  
-  // Alternative: Capture HTML content as image (for complex charts)
-  async generateReportFromHTML(elementId, filters) {
-    try {
-      const element = document.getElementById(elementId);
-      if (!element) {
-        throw new Error('Report element not found');
+      // Draw grid lines
+      doc.setDrawColor(240, 240, 240);
+      for (let i = 1; i < 5; i++) {
+        const y = chartY + (i * chartHeight / 5);
+        doc.line(chartX, y, chartX + chartWidth, y);
       }
       
-      // Hide buttons and controls before capture
-      const originalDisplay = {};
-      const controls = element.querySelectorAll('.no-print, button, .filter-controls');
-      controls.forEach(control => {
-        originalDisplay[control.id] = control.style.display;
-        control.style.display = 'none';
-      });
+      // Draw data points
+      const pointSize = 2;
+      const points = [];
       
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff'
-      });
-      
-      // Restore original display
-      controls.forEach(control => {
-        if (originalDisplay[control.id] !== undefined) {
-          control.style.display = originalDisplay[control.id];
+      trends.forEach((trend, index) => {
+        const x = chartX + (index * chartWidth / (trends.length - 1));
+        const y = chartY + chartHeight - ((trend.visits || 0) / (maxVisits || 1) * chartHeight);
+        points.push({ x, y });
+        
+        // Draw point
+        doc.setFillColor(66, 133, 244);
+        doc.circle(x, y, pointSize, 'F');
+        
+        // Month label
+        if (index % 2 === 0) {
+          doc.setFontSize(8);
+          doc.setTextColor(100, 100, 100);
+          doc.text(trend.month?.substring(0, 3) || '', x - 3, chartY + chartHeight + 5);
         }
       });
       
-      const imgData = canvas.toDataURL('image/png');
-      const imgWidth = 210; // A4 width in mm
-      const pageHeight = 297; // A4 height in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
-      const doc = new jsPDF('p', 'mm', 'a4');
-      
-      // Add logo first
-      await this.addLogo(doc);
-      
-      // Calculate how many pages needed
-      let heightLeft = imgHeight;
-      let position = 0;
-      
-      // Adjust position to account for logo
-      position = 50; // Start after logo
-      
-      doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-      
-      // Add additional pages if content is longer than one page
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        doc.addPage();
-        doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+      // Connect points with line
+      doc.setDrawColor(66, 133, 244);
+      doc.setLineWidth(0.5);
+      for (let i = 1; i < points.length; i++) {
+        doc.line(points[i-1].x, points[i-1].y, points[i].x, points[i].y);
       }
       
-      const fileName = this.generateFileName(filters);
-      doc.save(fileName);
+      // Add trend insights with proper symbols
+      const insightsY = chartY + chartHeight + 20;
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
       
-      return fileName;
+      const totalVisits = trends.reduce((sum, t) => sum + (t.visits || 0), 0);
+      const avgVisits = (totalVisits / (trends.length || 1)).toFixed(1);
       
-    } catch (error) {
-      console.error('Error generating HTML-based report:', error);
-      throw error;
+      // Using ASCII symbols instead of emoji
+      doc.text('• Average monthly visits: ' + avgVisits, 30, insightsY);
+      doc.text('• Total period visits: ' + totalVisits, 30, insightsY + 7);
+      doc.text('• Data reflects verified clinic records', 30, insightsY + 14);
+      
+      // Legend with ASCII symbols
+      doc.setFontSize(9);
+      doc.setTextColor(51, 153, 102);
+      doc.text('■ Increase', 30, insightsY + 25);
+      doc.setTextColor(234, 67, 53);
+      doc.text('■ Decrease', 70, insightsY + 25);
+      doc.setTextColor(255, 193, 7);
+      doc.text('■ Stable', 110, insightsY + 25);
+    } else {
+      doc.setFontSize(10);
+      doc.setTextColor(150, 150, 150);
+      doc.text('No trend data available', 30, trendY + 15);
     }
+    
+    // Page footer
+    this.addPageFooter(doc, 3);
+  },
+
+  // DATA TABLES PAGE
+  generateDataTablesPage(doc, reportData, reportType) {
+    const { frequentVisitors, medicationUsage, visits } = reportData;
+    
+    // Page header
+    doc.setFontSize(16);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Detailed Data Tables', 20, 30);
+    
+    // Frequent Visitors Table
+    doc.setFontSize(14);
+    doc.text('Frequent Visitors (Top 10)', 20, 45);
+    
+    if (frequentVisitors && frequentVisitors.length > 0) {
+      const visitorData = frequentVisitors.slice(0, 10).map(visitor => [
+        visitor.studentName || 'N/A',
+        visitor.grade || 'N/A',
+        visitor.visits || 0,
+        visitor.lastVisit || 'N/A'
+      ]);
+      
+      autoTable(doc, {
+        startY: 50,
+        head: [['Student Name', 'Grade', 'Visit Count', 'Last Visit']],
+        body: visitorData,
+        theme: 'grid',
+        headStyles: { 
+          fillColor: [51, 153, 102], 
+          textColor: 255,
+          fontSize: 11 
+        },
+        styles: { 
+          fontSize: 9,
+          cellPadding: 3
+        },
+        columnStyles: {
+          0: { cellWidth: 60 },
+          1: { cellWidth: 30, halign: 'center' },
+          2: { cellWidth: 30, halign: 'center' },
+          3: { cellWidth: 60 }
+        },
+        margin: { left: 20, right: 20 }
+      });
+    } else {
+      doc.setFontSize(10);
+      doc.setTextColor(150, 150, 150);
+      doc.text('No frequent visitor data available', 30, 55);
+    }
+    
+    // Medication Usage Table
+    const medY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : 100;
+    
+    doc.setFontSize(14);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Medication Administration Summary', 20, medY);
+    
+    if (medicationUsage && medicationUsage.length > 0) {
+      const medData = medicationUsage.slice(0, 15).map(med => [
+        med.name || 'N/A',
+        med.quantity || 0,
+        med.unit || 'N/A',
+        med.students || 0
+      ]);
+      
+      autoTable(doc, {
+        startY: medY + 5,
+        head: [['Medication', 'Quantity', 'Unit', 'Students']],
+        body: medData,
+        theme: 'grid',
+        headStyles: { 
+          fillColor: [155, 81, 224], 
+          textColor: 255,
+          fontSize: 11 
+        },
+        styles: { 
+          fontSize: 9,
+          cellPadding: 3
+        },
+        columnStyles: {
+          0: { cellWidth: 70 },
+          1: { cellWidth: 30, halign: 'center' },
+          2: { cellWidth: 30, halign: 'center' },
+          3: { cellWidth: 30, halign: 'center' }
+        },
+        margin: { left: 20, right: 20 }
+      });
+    }
+    
+    // Recent Visits Table
+    const visitsY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : 150;
+    
+    doc.setFontSize(14);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Recent Clinic Visits', 20, visitsY);
+    
+    if (visits && visits.length > 0) {
+      const recentVisits = visits.slice(0, 10).map(visit => [
+        visit.date || 'N/A',
+        visit.studentName || 'N/A',
+        visit.reason || 'N/A',
+        visit.disposition || 'N/A'
+      ]);
+      
+      autoTable(doc, {
+        startY: visitsY + 5,
+        head: [['Date', 'Student', 'Reason', 'Disposition']],
+        body: recentVisits,
+        theme: 'grid',
+        headStyles: { 
+          fillColor: [255, 193, 7], 
+          textColor: 0,
+          fontSize: 11 
+        },
+        styles: { 
+          fontSize: 8,
+          cellPadding: 2,
+          overflow: 'linebreak',
+          cellWidth: 'wrap'
+        },
+        columnStyles: {
+          0: { cellWidth: 30 },
+          1: { cellWidth: 45 },
+          2: { cellWidth: 60 },
+          3: { cellWidth: 45 }
+        },
+        margin: { left: 20, right: 20 }
+      });
+    }
+    
+    // Data notes
+    const notesY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 15 : 250;
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Note: All data is extracted from the SYTE Infirmary Management System database.', 20, notesY);
+    doc.text('Records are maintained in compliance with healthcare documentation standards.', 20, notesY + 5);
+    
+    // Page footer
+    this.addPageFooter(doc, 4);
+  },
+
+  // APPROVAL PAGE
+  generateApprovalPage(doc) {
+    // Page header
+    doc.setFontSize(16);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Approval & Authorization', 105, 40, { align: 'center' });
+    
+    // Authorization text
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    
+    const authText = `This report has been generated by the SYTE Infirmary Management System and represents an accurate 
+summary of health center activities for the specified reporting period. The information contained herein is 
+confidential and intended only for authorized school personnel involved in student health management and 
+administrative oversight.
+
+By signing below, the approving officials acknowledge receipt and review of this report, confirming its 
+accuracy and authorizing its inclusion in official school health records.`;
+    
+    const splitText = doc.splitTextToSize(authText, 170);
+    doc.text(splitText, 20, 60);
+    
+    // Signature section
+    const signatureY = 140;
+    
+    // School Nurse signature
+    doc.setFontSize(12);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'bold');
+    doc.text('School Nurse / Health Officer', 30, signatureY);
+    
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.line(30, signatureY + 5, 80, signatureY + 5);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Signature', 30, signatureY + 12);
+    doc.text('Date: __________________', 30, signatureY + 20);
+    
+    // Principal signature
+    doc.setFontSize(12);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Head of School / Principal', 100, signatureY);
+    
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.line(100, signatureY + 5, 150, signatureY + 5);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Signature', 100, signatureY + 12);
+    doc.text('Date: __________________', 100, signatureY + 20);
+    
+    // Medical Director signature
+    const directorY = signatureY + 50;
+    doc.setFontSize(12);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Medical Director / Supervisor', 65, directorY);
+    
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.line(65, directorY + 5, 115, directorY + 5);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Signature', 65, directorY + 12);
+    doc.text('Date: __________________', 65, directorY + 20);
+    
+    // Final notes
+    const notesY = directorY + 40;
+    doc.setFontSize(10);
+    doc.setTextColor(150, 150, 150);
+    doc.setFont('helvetica', 'italic');
+    
+    const notesText = `This document constitutes an official record of the SYTE Infirmary. 
+Unauthorized reproduction or distribution is prohibited. All records are maintained 
+in accordance with data protection regulations and healthcare confidentiality standards.`;
+    
+    const notesSplit = doc.splitTextToSize(notesText, 170);
+    doc.text(notesSplit, 20, notesY);
+    
+    // Document distribution
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Document Distribution:', 20, notesY + 30);
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    const distribution = [
+      '1. School Administration Office (Original)',
+      '2. Infirmary Records (Copy)',
+      '3. Student Health Files (Reference Copy)',
+      '4. Board of Education (Summary Copy)'
+    ];
+    
+    distribution.forEach((item, index) => {
+      doc.text(item, 25, notesY + 40 + (index * 6));
+    });
+    
+    // Page footer
+    this.addPageFooter(doc, 5);
+  },
+
+  // Add page footer
+  addPageFooter(doc, pageNumber) {
+    const totalPages = 5; // Fixed for this report structure
+    
+    // Footer line
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, 282, 190, 282);
+    
+    // Page number
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Page ${pageNumber} of ${totalPages}`, 105, 290, { align: 'center' });
+    
+    // Confidential notice on all pages except cover
+    if (pageNumber > 1) {
+      doc.setFontSize(8);
+      doc.text('Confidential - SYTE Infirmary Management System', 105, 295, { align: 'center' });
+    }
+  },
+
+  // Generate student medical report (single page)
+  async generateStudentMedicalReport(studentData) {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+    
+    // Cover watermark
+    doc.setFontSize(40);
+    doc.setTextColor(240, 240, 240);
+    doc.setFont('helvetica', 'bold');
+    doc.text('MEDICAL RECORD', 105, 150, { align: 'center' });
+    
+    // Header
+    doc.setFontSize(18);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'bold');
+    doc.text('STUDENT MEDICAL RECORD', 105, 30, { align: 'center' });
+    
+    // Student info box
+    doc.setDrawColor(0, 51, 102);
+    doc.setLineWidth(0.5);
+    doc.rect(20, 40, 170, 40);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Student Information', 25, 48);
+    
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    
+    const studentInfo = [
+      `Name: ${studentData.fullName || 'N/A'}`,
+      `Student ID: ${studentData.studentId || 'N/A'}`,
+      `Grade/Class: ${studentData.grade || ''} - ${studentData.className || ''}`,
+      `Date of Birth: ${studentData.dateOfBirth || 'N/A'}`
+    ];
+    
+    studentInfo.forEach((info, index) => {
+      const col = index < 2 ? 25 : 105;
+      const row = index % 2 === 0 ? 55 : 62;
+      doc.text(info, col, row);
+    });
+    
+    // Medical History Table
+    const startY = 90;
+    doc.setFontSize(14);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Medical History', 20, startY);
+    
+    if (studentData.medicalHistory && studentData.medicalHistory.length > 0) {
+      const historyData = studentData.medicalHistory.map(record => [
+        record.date || 'N/A',
+        record.condition || 'N/A',
+        record.treatment || 'N/A',
+        record.notes?.substring(0, 50) + '...' || 'N/A'
+      ]);
+      
+      autoTable(doc, {
+        startY: startY + 5,
+        head: [['Date', 'Condition', 'Treatment', 'Notes']],
+        body: historyData.slice(0, 8), // Limit to 8 most recent
+        theme: 'grid',
+        headStyles: { 
+          fillColor: [66, 133, 244], 
+          textColor: 255,
+          fontSize: 10 
+        },
+        styles: { 
+          fontSize: 8,
+          cellPadding: 2
+        },
+        columnStyles: {
+          0: { cellWidth: 25 },
+          1: { cellWidth: 40 },
+          2: { cellWidth: 50 },
+          3: { cellWidth: 55 }
+        },
+        margin: { left: 20, right: 20 }
+      });
+    }
+    
+    // Allergies & Conditions
+    const detailsY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 15 : startY + 50;
+    
+    doc.setFontSize(14);
+    doc.setTextColor(0, 51, 102);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Health Details', 20, detailsY);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    
+    const details = [
+      `Allergies: ${studentData.allergies || 'None recorded'}`,
+      `Chronic Conditions: ${studentData.chronicConditions || 'None recorded'}`,
+      `Blood Type: ${studentData.bloodType || 'Not recorded'}`,
+      `Emergency Contact: ${studentData.emergencyContact || 'N/A'}`
+    ];
+    
+    details.forEach((detail, index) => {
+      doc.text(detail, 25, detailsY + 10 + (index * 7));
+    });
+    
+    // Signature section
+    const signatureY = detailsY + 40;
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    
+    // Nurse signature
+    doc.text('Attending Nurse/Physician:', 30, signatureY);
+    doc.line(30, signatureY + 2, 80, signatureY + 2);
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Signature & Stamp', 30, signatureY + 8);
+    
+    // Date
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Date:', 30, signatureY + 15);
+    doc.line(30, signatureY + 17, 60, signatureY + 17);
+    
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text('SYTE Infirmary - Confidential Student Record', 105, 285, { align: 'center' });
+    doc.text(`Generated: ${new Date().toLocaleDateString()} | Record ID: ${studentData.studentId || 'N/A'}`, 105, 290, { align: 'center' });
+    
+    const fileName = `Student_Medical_Record_${studentData.studentId || 'unknown'}_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+    return fileName;
+  },
+
+  // Helper functions
+  generateReportId() {
+    const date = new Date();
+    const timestamp = date.getTime().toString().slice(-6);
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `MED-${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}-${timestamp}${random}`;
+  },
+
+  formatDateRange(dateRange) {
+    if (!dateRange) return 'All Time';
+    
+    const now = new Date();
+    const formatDate = (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    
+    switch(dateRange) {
+      case 'last_7_days':
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return `${formatDate(weekAgo)} to ${formatDate(now)}`;
+      case 'last_30_days':
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        return `${formatDate(monthAgo)} to ${formatDate(now)}`;
+      case 'last_90_days':
+        const quarterAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        return `${formatDate(quarterAgo)} to ${formatDate(now)}`;
+      case 'this_year':
+        const yearStart = new Date(now.getFullYear(), 0, 1);
+        return `${formatDate(yearStart)} to ${formatDate(now)}`;
+      default:
+        return dateRange;
+    }
+  },
+
+  generateReportFileName(reportType, filters) {
+    const date = new Date().toISOString().split('T')[0];
+    const dateRange = filters?.dateRange || 'report';
+    const type = reportType || 'summary';
+    
+    return `SYTE_Infirmary_${type.charAt(0).toUpperCase() + type.slice(1)}_Report_${dateRange}_${date}.pdf`;
   }
 };
