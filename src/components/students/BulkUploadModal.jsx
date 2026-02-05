@@ -67,17 +67,24 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload }) => {
   };
 
   const downloadTemplate = () => {
-    // Create a template CSV
+    // Create a template CSV with emergency contact columns
     const templateData = [
-      ['Student ID*', 'First Name*', 'Last Name*', 'Grade Level*', 'Class*', 'Date of Birth*', 'Gender*', 'Boarding Status*', 'Allergies'],
-      ['MG011000501225', 'Janice', 'Danquah', 'Form 3', '3GS1', '2003-06-1', 'Female', 'BOARDING', 'None'],
-      ['MG011000501226', 'Jane', 'Smith', 'Form 1', '1GA3', '2009-08-22', 'Female', 'DAY', 'Peanuts/Dust'],
-      ['', '', '', '', '', '', '', '', ''],
+      ['Student ID*', 'First Name*', 'Last Name*', 'Grade Level*', 'Class*', 'Date of Birth*', 'Gender*', 'Boarding Status*', 'Allergies', 
+      'Emergency Contact 1 Name', 'Emergency Contact 1 Relationship', 'Emergency Contact 1 Phone', 'Emergency Contact 1 Email',
+      'Emergency Contact 2 Name', 'Emergency Contact 2 Relationship', 'Emergency Contact 2 Phone', 'Emergency Contact 2 Email'],
+      ['MG011000501225', 'Janice', 'Danquah', 'Form 3', '3GS1', '2003-06-15', 'Female', 'BOARDING', 'None',
+      'William Ababio', 'Parent', '0244022847', 'parent1@email.com',
+      'Trustee Quarshie', 'Guardian', '0242507307', 'guardian@email.com'],
+      ['MG011000501226', 'Jane', 'Smith', 'Form 1', '1GA3', '2009-08-22', 'Female', 'DAY', 'Peanuts',
+      'John Smith', 'Father', '0241234567', 'john@email.com',
+      'Mary Smith', 'Mother', '0247654321', 'mary@email.com'],
+      ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
       ['* Required fields'],
       ['Student ID format: MG0 + 11 digits (e.g. MG011000501225)'],
       ['Boarding Status: DAY or BOARDING'],
       ['Gender: Male/Female/Other/Prefer not to say'],
-      ['Allergies: Separate multiple allergies with commas']
+      ['Allergies: Separate multiple allergies with commas'],
+      ['Emergency Contacts: Can leave blank if not applicable']
     ];
     
     const csvContent = templateData.map(row => row.join(',')).join('\n');
@@ -85,7 +92,7 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload }) => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'student_upload_template.csv';
+    a.download = 'student_upload_template_with_contacts.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

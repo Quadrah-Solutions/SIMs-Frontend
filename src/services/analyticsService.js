@@ -229,7 +229,7 @@ export const analyticsService = {
       return await response.json();
     } catch (error) {
       console.error('Error fetching grades:', error);
-      return ["Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
+      return ["Form 1", "Form 2", "Form 3"];
     }
   },
 

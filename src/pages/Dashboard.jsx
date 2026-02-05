@@ -4,9 +4,12 @@ import StatCards from '../components/dashboard/StatCards';
 import LatestVisits from '../components/dashboard/LatestVisits';
 import QuickActions from '../components/dashboard/QuickActions';
 import Alerts from '../components/dashboard/Alerts';
+import { useAuth } from '../hooks/useAuth'; // Import useAuth hook
 
 const Dashboard = () => {
   const { stats, latestVisits, alerts, loading, error, refetch } = useDashboard();
+  const { user, authenticated, loading: authLoading } = useAuth(); // Get auth state
+  
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -30,6 +33,16 @@ const Dashboard = () => {
     );
   }
 
+  // Check if user has admin role
+  const hasAdminRole = user?.roles?.some(role => 
+    role.toLowerCase().includes('admin') || role === 'ADMIN'
+  );
+  
+  // Alternatively, check if user is NOT a nurse (if QuickActions should only be for nurses)
+  const hasNurseRole = user?.roles?.some(role => 
+    role.toLowerCase().includes('nurse') || role === 'NURSE'
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -51,7 +64,8 @@ const Dashboard = () => {
 
           {/* Right Column - Compact cards */}
           <div className="space-y-4">
-            <QuickActions />
+            {/* Conditionally render QuickActions - hide for ADMIN users */}
+            {!hasAdminRole && <QuickActions />}
             <Alerts alerts={alerts} loading={loading} />
           </div>
         </div>

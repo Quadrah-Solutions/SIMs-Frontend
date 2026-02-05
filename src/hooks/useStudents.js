@@ -96,6 +96,35 @@ export const useStudents = () => {
     }
   };
 
+  // Add the updateStudent function here
+  const updateStudent = async (studentId, studentData) => {
+    try {
+      console.log(`🔄 Updating student ${studentId} with data:`, studentData);
+      setStudentsData(prev => ({ ...prev, loading: true, error: null }));
+      
+      // Use the studentService method
+      const updatedStudent = await studentService.updateStudent(studentId, studentData);
+      
+      console.log('✅ Student updated successfully:', updatedStudent);
+      
+      // Update the local state with the updated student
+      setStudentsData(prev => ({
+        ...prev,
+        students: prev.students.map(student => 
+          student.id === studentId ? updatedStudent : student
+        ),
+        loading: false
+      }));
+      
+      return updatedStudent;
+      
+    } catch (error) {
+      console.error('❌ Error updating student:', error);
+      setStudentsData(prev => ({ ...prev, error: error.message, loading: false }));
+      throw error;
+    }
+  };
+
   useEffect(() => {
     console.log('useStudents hook is running');
     fetchStudents(1);
@@ -119,22 +148,36 @@ export const useStudents = () => {
 
   const createStudent = async (studentData) => {
     try {
+      setStudentsData(prev => ({ ...prev, loading: true, error: null }));
+      
       const newStudent = await studentService.createStudent(studentData);
-      // Refetch students to include the new one
-      await refetch(studentsData.currentPage);
+      
+      console.log('✅ Student created successfully:', newStudent);
+      
+      // Update local state with the new student
+      setStudentsData(prev => ({
+        ...prev,
+        students: [newStudent, ...prev.students],
+        totalCount: prev.totalCount + 1,
+        loading: false
+      }));
+      
       return newStudent;
     } catch (error) {
-      console.error('Error creating student:', error);
+      console.error('❌ Error creating student:', error);
+      setStudentsData(prev => ({ ...prev, error: error.message, loading: false }));
       throw error;
     }
   };
 
+  // Make sure to return all the functions including updateStudent
   return {
     ...studentsData,
     filters,
     refetch,
     updateFilters,
     bulkUploadStudents,
-    createStudent
+    createStudent,
+    updateStudent // IMPORTANT: Add this to the return object
   };
 };

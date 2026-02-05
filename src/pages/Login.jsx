@@ -15,16 +15,25 @@ export default function Login() {
     }
   }, [authenticated, navigate, location]);
 
-  const handleLogin = async () => {
+  const handleLogin = async (e) => {
+    e.preventDefault(); // Prevent default form submission
+    
     try {
       await login();
     } catch (error) {
       console.error('Login failed:', error);
-      const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL || "http://KBs-MacBook-Pro.local:8180";
-      const realm = import.meta.env.VITE_KEYCLOAK_REALM || "SIMs";
-      const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || "sims_frontend";
+      
+      // Fallback to Keycloak's OAuth flow
+      const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL;
+      const realm = import.meta.env.VITE_KEYCLOAK_REALM;
+      const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID;
       const redirectUri = encodeURIComponent(window.location.origin);
-      window.location.href = `${keycloakUrl}/realms/${realm}/protocol/openid-connect/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=openid`;
+      
+      // Use OAuth authorization endpoint
+      const authUrl = `${keycloakUrl}/realms/${realm}/protocol/openid-connect/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=openid%20profile%20email&state=${Math.random().toString(36).substring(7)}`;
+      
+      // Redirect user (don't use POST)
+      window.location.href = authUrl;
     }
   };
 
@@ -172,7 +181,7 @@ export default function Login() {
           <img
             className="object-cover w-full h-full"
             src="https://scontent.facc1-1.fna.fbcdn.net/v/t39.30808-6/491789013_1102721401898736_6299064463602769695_n.jpg?_nc_cat=111&ccb=1-7&_nc_sid=127cfc&_nc_ohc=EP40HLnIhgoQ7kNvwFz71GO&_nc_oc=AdnJjLz7IX4qLlx9BksTOl56gK76-GJuZvy7ykzypFpOOAV9i780HUmoI9ZY3jmpFi4&_nc_zt=23&_nc_ht=scontent.facc1-1.fna&_nc_gid=fZdF8qyRVjuh0fAXdSrmAg&oh=00_AfvqAlDLkvf1bhUEodt-yocKVXd0jl1AsxtGgRa_j9VEaQ&oe=698393E6"
-            alt="Healthcare professionals in school setting"
+            alt="Mfantsiman School Gate"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 via-transparent to-transparent flex items-end">
             <div className="p-8 text-white">

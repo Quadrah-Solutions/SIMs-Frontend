@@ -1,4 +1,3 @@
-// context/AuthContext.js (or wherever your AuthProvider is)
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import keycloak from '../config/keycloak';
 
@@ -11,6 +10,21 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
+
+
+  const extractRoles = (token) => {
+    if (!token) return [];
+
+    const realmRoles = token.realm_access?.roles ?? [];
+
+    const clientId =
+      import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'sims_frontend';
+
+    const clientRoles =
+      token.resource_access?.[clientId]?.roles ?? [];
+
+    return [...new Set([...realmRoles, ...clientRoles])];
+  };
 
   useEffect(() => {
     const initAuth = async () => {
@@ -37,33 +51,19 @@ export const AuthProvider = ({ children }) => {
         setInitialized(true);
         setAuthenticated(auth);
         
-        if (auth && keycloak.tokenParsed) {
+        if (keycloak.authenticated && keycloak.tokenParsed) {
           const token = keycloak.tokenParsed;
+
+          const roles = extractRoles(token);
+
           console.log('🔑 Token parsed:', token);
-          console.log('🎭 Realm access roles:', token.realm_access?.roles);
-          console.log('🎭 Resource access roles:', token.resource_access);
-          
-          // Extract roles - check both realm_access and resource_access
-          let roles = [];
-          
-          // Get realm roles
-          if (token.realm_access?.roles) {
-            roles = [...token.realm_access.roles];
-          }
-          
-          // Get client-specific roles from resource_access
-          if (token.resource_access) {
-            const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || "sims_frontend";
-            if (token.resource_access[clientId]?.roles) {
-              roles = [...roles, ...token.resource_access[clientId].roles];
-            }
-          }
-          
+          console.log('🎭 Extracted roles:', roles);
+
           setUser({
             id: token.sub,
             username: token.preferred_username || token.email,
             email: token.email,
-            roles: roles,
+            roles,
             name: token.name || token.preferred_username,
             firstName: token.given_name,
             lastName: token.family_name,

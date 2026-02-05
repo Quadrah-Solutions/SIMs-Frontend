@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react'; // Added useEffect import
+import React, { useState, useEffect, useCallback } from 'react';
 import { useStudents } from '../hooks/useStudents';
 import StudentFilters from '../components/students/StudentFilters';
 import StudentsTable from '../components/students/StudentsTable';
 import NewStudentModal from '../components/students/NewStudentModal';
+import EditStudentModal from '../components/students/EditStudentModal'; // Add this import
 import BulkUploadModal from '../components/students/BulkUploadModal';
 import { useNotification } from '../components/common/NotificationProvider';
 import StudentMedicalHistory from '../components/students/StudentMedicalHistory';
-import { useSearchParams } from 'react-router-dom'; // Added this import
+import { useSearchParams } from 'react-router-dom';
+import { studentService } from '../services/studentService'; // Make sure you have this service
 
 const Students = () => {
   const { 
@@ -22,23 +24,32 @@ const Students = () => {
     refetch, 
     updateFilters,
     createStudent,
+    updateStudent, // Add this from your hook
     bulkUploadStudents  
   } = useStudents();
 
   const [isNewStudentModalOpen, setIsNewStudentModalOpen] = useState(false);
   const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
+  const [isMedicalHistoryModalOpen, setIsMedicalHistoryModalOpen] = useState(false);
+  const [isEditStudentModalOpen, setIsEditStudentModalOpen] = useState(false); // Add this
+  const [selectedStudent, setSelectedStudent] = useState(null);
   const [bulkUploadLoading, setBulkUploadLoading] = useState(false); 
+  const [studentToEdit, setStudentToEdit] = useState(null); // Add this
 
   const { success, error: showError } = useNotification();
-
-  const [selectedStudentForMedicalHistory, setSelectedStudentForMedicalHistory] = useState(null);
 
   // Add useSearchParams hook
   const [searchParams, setSearchParams] = useSearchParams();
   const actionParam = searchParams.get('action'); // Get the action parameter
 
   const openMedicalHistoryModal = (student) => {
-    setSelectedStudentForMedicalHistory(student);
+    setSelectedStudent(student);
+    setIsMedicalHistoryModalOpen(true);
+  };
+
+  const openEditStudentModal = (student) => {
+    setStudentToEdit(student);
+    setIsEditStudentModalOpen(true);
   };
 
   console.log('Students component state:', { 
@@ -70,6 +81,14 @@ const Students = () => {
     setIsBulkUploadModalOpen(true);
   };
 
+  useEffect(() => {
+    console.log('EditStudentModal state:', {
+      isOpen: isEditStudentModalOpen,
+      studentId: studentToEdit?.id,
+      student: studentToEdit
+    });
+  }, [isEditStudentModalOpen, studentToEdit]);
+
   const handleCloseNewStudentModal = () => {
     setIsNewStudentModalOpen(false);
     // Clean up URL parameters
@@ -83,6 +102,16 @@ const Students = () => {
     setIsBulkUploadModalOpen(false);
   };
 
+  const handleCloseMedicalHistoryModal = () => {
+    setIsMedicalHistoryModalOpen(false);
+    setSelectedStudent(null);
+  };
+
+  const handleCloseEditStudentModal = () => {
+    setIsEditStudentModalOpen(false);
+    setStudentToEdit(null);
+  };
+
   const handleSaveStudent = async (studentData) => {
     try {
       console.log('Saving new student:', studentData);
@@ -92,12 +121,47 @@ const Students = () => {
       // Show success notification
       success('Student added successfully!');
       // No need to manually refetch as createStudent already updates the state
-    } catch (err) { // FIXED: Changed 'error' to 'err' to avoid conflict
+    } catch (err) {
       console.error('Failed to save student:', err);
       // Show error notification
       showError(`Failed to save student: ${err.message}`);
     }
   };
+
+  const handleUpdateStudent = useCallback(async (studentId, studentData) => {
+    try {
+      console.log('Updating student:', studentId, studentData);
+      
+      if (!studentId) {
+        throw new Error('Student ID is required');
+      }
+      
+      if (!studentData) {
+        throw new Error('Student data is required');
+      }
+      
+      // Make sure updateStudent exists and is a function
+      if (typeof updateStudent !== 'function') {
+        throw new Error('updateStudent is not available');
+      }
+      
+      await updateStudent(studentId, studentData);
+      
+      setIsEditStudentModalOpen(false);
+      setStudentToEdit(null);
+      
+      // Show success notification
+      success('Student updated successfully!');
+      
+      // Refresh the student list
+      refetch();
+      
+    } catch (err) {
+      console.error('Failed to update student:', err);
+      showError(`Failed to update student: ${err.message}`);
+      throw err; // Re-throw to show error in modal
+    }
+  }, [updateStudent, success, showError, refetch]); // Add dependencies
 
   const handleBulkUploadSubmit = async (file) => {
     try {
@@ -170,9 +234,11 @@ const Students = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      {/* Apply blur to the main content when modal is open */}
+      {/* Apply blur to the main content when any modal is open */}
       <div className={`max-w-7xl mx-auto transition-all duration-300 ${
-        isNewStudentModalOpen || isBulkUploadModalOpen ? 'blur-sm opacity-70' : 'blur-0 opacity-100'
+        isNewStudentModalOpen || isBulkUploadModalOpen || isMedicalHistoryModalOpen || isEditStudentModalOpen
+          ? 'blur-sm opacity-70' 
+          : 'blur-0 opacity-100'
       }`}>
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Students</h1>
@@ -195,35 +261,10 @@ const Students = () => {
           totalPages={totalPages}
           totalCount={totalCount}
           onPageChange={handlePageChange}
+          onViewMedicalHistory={openMedicalHistoryModal}
+          onEditStudent={openEditStudentModal} // Pass the edit handler
         />
       </div>
-
-      {/* Medical History Modal */}
-      {selectedStudentForMedicalHistory && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-xl bg-white">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">
-                Medical History - {selectedStudentForMedicalHistory.firstName} {selectedStudentForMedicalHistory.lastName}
-              </h2>
-              <button
-                onClick={() => setSelectedStudentForMedicalHistory(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <StudentMedicalHistory
-              studentId={selectedStudentForMedicalHistory.id}
-              studentName={`${selectedStudentForMedicalHistory.firstName} ${selectedStudentForMedicalHistory.lastName}`}
-              onClose={() => setSelectedStudentForMedicalHistory(null)}
-            />
-          </div>
-        </div>
-      )}
 
       {/* New Student Modal */}
       <NewStudentModal
@@ -232,11 +273,36 @@ const Students = () => {
         onSave={handleSaveStudent}
       />
 
+      {/* Edit Student Modal */}
+      {studentToEdit && (
+        <EditStudentModal
+          isOpen={isEditStudentModalOpen}
+          onClose={handleCloseEditStudentModal}
+          onSave={(studentData) => {
+            console.log('EditStudentModal onSave called with:', studentData);
+            return handleUpdateStudent(studentToEdit.id, studentData);
+          }}
+          student={studentToEdit}
+          grades={grades}
+          classes={classes}
+        />
+      )}
+
       {/* Bulk Upload Modal */}
       <BulkUploadModal
         isOpen={isBulkUploadModalOpen}
         onClose={handleCloseBulkUploadModal}
         onUpload={handleBulkUploadSubmit}
+      />
+
+      {/* Medical History Modal */}
+      <StudentMedicalHistory
+        isOpen={isMedicalHistoryModalOpen}
+        onClose={handleCloseMedicalHistoryModal}
+        studentId={selectedStudent?.id}
+        studentName={selectedStudent ? 
+          `${selectedStudent.firstName} ${selectedStudent.lastName}` : 
+          ''}
       />
     </div>
   );

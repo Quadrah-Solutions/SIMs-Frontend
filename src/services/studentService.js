@@ -58,8 +58,8 @@ export const mockStudentData = {
       boardingStatus: "BOARDING"
     }
   ],
-  grades: ["Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"],
-  classes: ["7A", "7B", "7C", "8A", "8B", "8C", "9A", "9B", "9C", "10A", "10B", "11A", "11B", "12A", "12B"]
+  grades: ["Form 1", "Form 2", "Form 3"],
+  classes: ["1GS2", "1HE1", "1GS5", "1GS4", "1GA1", "1BS2", "1GS9", "1GA3", "1GA4", "1HE5", "1GA9", "1GS3", "1GA8", "1G S8", "1HE4", "1GS1", "1GA7", "1GA2", "1GA6", "1GA5", "1AS1", "1PA1", "1HE2", "1HE3", "1GS8", "1GA10", "1GA11", "1BS1", "1BS3", "2GA1", "2HE3", "2HE2", "2GA9", "2GA10", "2GS1", "2GS2", "2GS10", "2BS1", "2GA7", "2GA5", "2GS7", "2GS3", "2GS9", "2GA4", "2PA1", "2HE5", "2AS2", "2GS6", "2GS5", "2BS3", "2HE1", "2GS4", "2GA6", "2BS2", "2GA8", "2HE4", "2PA2", "2GS8", "2GA3", "2GA2", "2GS11", "3S5", "3S13", "3S7", "3H3", "3S1", "3S2", "3S11", "3B1", "3S9", "3H2", "3H5", "3S4", "3H4", "3H1", "3S15", "3A1", "3A2", "3S14", "3H6", "3S8", "3A4", "3B2", "3V1", "3A6", "3S12", "3A3", "3S10", "3S6", "3A5", "3A8", "3A7", "3B3"]
 };
 
 // Helper function to get the authorization header - FIXED VERSION

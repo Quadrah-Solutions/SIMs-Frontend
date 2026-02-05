@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import exportService from "../../services/exportService";
+import { ViewVisitButton, ViewDetailsButton, EditButton, IconButton, ActionButton } from '../common/ButtonComponents'; // Add this import
 
 // Add filters to the component props
 const VisitsTable = ({ visits, loading, currentPage, totalPages, totalCount, onPageChange, filters }) => {
@@ -8,9 +9,6 @@ const VisitsTable = ({ visits, loading, currentPage, totalPages, totalCount, onP
   const [isExporting, setIsExporting] = useState(false);
   const [exportType, setExportType] = useState('');
 
-  // Move ALL helper functions inside the component
-  // They should NOT reference visit directly, only through parameters
-  
   // Generate page numbers for pagination
   const getPageNumbers = () => {
     const pages = [];
@@ -209,6 +207,49 @@ const VisitsTable = ({ visits, loading, currentPage, totalPages, totalCount, onP
       originalEmergencyFlag: visit.original?.emergencyFlag,
       originalDisposition: visit.original?.disposition
     });
+  };
+
+  // Add this helper function to handle safe array rendering
+  const renderMedicationsOrTreatments = (items, type) => {
+    if (!items || !Array.isArray(items)) {
+      return null;
+    }
+    
+    if (items.length === 0) {
+      return null;
+    }
+    
+    return (
+      <div className={`${type === 'medications' ? 'mb-2' : ''}`}>
+        <span className={`text-xs font-medium ${
+          type === 'medications' ? 'text-blue-600' : 'text-green-600'
+        }`}>
+          {type === 'medications' ? 'Medications:' : 'Treatments:'}
+        </span>
+        <div className="text-xs text-gray-500 space-y-1 mt-1">
+          {items.map((item, idx) => (
+            <div key={idx} className="flex items-start">
+              <span className="text-gray-400 mr-1 mt-0.5">•</span>
+              <div>
+                <span className="font-medium">
+                  {item.medicationName || item.treatmentName || item.medication?.medicationName || 'Unknown'}
+                </span>
+                {item.dosage && (
+                  <span className="text-gray-600 ml-1">
+                    ({item.dosage})
+                  </span>
+                )}
+                {(item.notes || item.description) && (
+                  <div className="text-gray-500 italic">
+                    {type === 'medications' ? `Notes: ${item.notes || ''}` : `Description: ${item.description || ''}`}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -430,7 +471,7 @@ const VisitsTable = ({ visits, loading, currentPage, totalPages, totalCount, onP
                 Condition
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Medications
+                Medications & Treatments
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
@@ -444,9 +485,13 @@ const VisitsTable = ({ visits, loading, currentPage, totalPages, totalCount, onP
               const disposition = getVisitData(visit, 'disposition');
               const formattedOutcome = formatDisposition(disposition);
               
-              // Get medications and treatments
+              // Get medications and treatments - ensure they are arrays
               const medications = getVisitData(visit, 'medications') || [];
               const treatments = getVisitData(visit, 'treatments') || [];
+              
+              // Ensure medications and treatments are arrays
+              const safeMedications = Array.isArray(medications) ? medications : [];
+              const safeTreatments = Array.isArray(treatments) ? treatments : [];
               
               return (
                 <tr key={visit.id} className="hover:bg-gray-50">
@@ -498,83 +543,42 @@ const VisitsTable = ({ visits, loading, currentPage, totalPages, totalCount, onP
                         Debug
                       </button>
                       
-                      {/* Medications */}
-                      {medications.length > 0 && (
-                        <div className="mb-2">
-                          <span className="text-xs font-medium text-blue-600">Medications:</span>
-                          <div className="text-xs text-gray-500 space-y-1 mt-1">
-                            {medications.map((med, idx) => (
-                              <div key={idx} className="flex items-start">
-                                <span className="text-gray-400 mr-1 mt-0.5">•</span>
-                                <div>
-                                  <span className="font-medium">
-                                    {med.medicationName || med.medication?.medicationName || 'Medication'}
-                                  </span>
-                                  <span className="text-gray-600 ml-1">
-                                    ({med.dosage || 'No dosage'})
-                                  </span>
-                                  {med.notes && (
-                                    <div className="text-gray-500 italic">Notes: {med.notes}</div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      {/* Render medications safely */}
+                      {renderMedicationsOrTreatments(safeMedications, 'medications')}
                       
-                      {/* Treatments */}
-                      {treatments.length > 0 && (
-                        <div>
-                          <span className="text-xs font-medium text-green-600">Treatments:</span>
-                          <div className="text-xs text-gray-500 space-y-1 mt-1">
-                            {treatments.map((treatment, idx) => (
-                              <div key={idx} className="flex items-start">
-                                <span className="text-gray-400 mr-1 mt-0.5">•</span>
-                                <div>
-                                  <span className="font-medium">{treatment.treatmentName}</span>
-                                  {treatment.description && (
-                                    <span className="text-gray-600 ml-1">- {treatment.description}</span>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      {/* Render treatments safely */}
+                      {renderMedicationsOrTreatments(safeTreatments, 'treatments')}
                       
                       {/* Show if none */}
-                      {medications.length === 0 && treatments.length === 0 && (
+                      {safeMedications.length === 0 && safeTreatments.length === 0 && (
                         <span className="text-xs text-gray-400 italic">None</span>
                       )}
                     </div>
                   </td>
                   
-                  {/* Actions */}
+                  {/* Actions - Using reusable button components */}
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      {/* View button */}
-                      <button
-                        onClick={() => navigate(`/visits/${visit.id}`)}
-                        className="text-blue-600 hover:text-blue-900 transition duration-200 p-1 rounded hover:bg-blue-50"
-                        title="View Visit Details"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      </button>
+                      {/* View button - Use ViewDetailsButton component */}
+                      <ViewVisitButton id={visit.id} />
                       
-                      {/* Edit button (optional) */}
-                      <button
-                        onClick={() => console.log('Edit visit:', visit.id)}
-                        className="text-green-600 hover:text-green-900 transition duration-200 p-1 rounded hover:bg-green-50"
+                      {/* Edit button - Use EditButton component */}
+                      <EditButton 
+                        onClick={() => navigate(`/visits/${visit.id}/edit`)} // Update this to your edit route
                         title="Edit Visit"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
+                      />
+                      
+                      {/* Quick action button example */}
+                      <IconButton
+                        onClick={() => console.log('Quick action for visit:', visit.id)}
+                        title="Quick Action"
+                        color="purple"
+                        icon={
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        }
+                      />
                     </div>
                   </td>
                 </tr>
