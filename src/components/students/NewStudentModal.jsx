@@ -11,6 +11,8 @@ const NewStudentModal = ({ isOpen, onClose, onSave }) => {
     dateOfBirth: '',
     gender: '',
     boardingStatus: 'DAY',
+    house: '', // Add house field
+    yearGroup: '',
     specialNotes: '',
     allergies: [],
     emergencyContacts: []
@@ -36,6 +38,7 @@ const NewStudentModal = ({ isOpen, onClose, onSave }) => {
 
   const [grades, setGrades] = useState([]);
   const [classes, setClasses] = useState([]);
+  const [houses, setHouses] = useState([]); // Add houses state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isVisible, setIsVisible] = useState(false);
@@ -43,27 +46,39 @@ const NewStudentModal = ({ isOpen, onClose, onSave }) => {
   // Common severity options
   const severityOptions = ['Mild', 'Moderate', 'Severe', 'Life-threatening'];
 
+  // House options - based on your database
+  const houseOptions = [
+    { id: 'AD', name: 'ADDO' },
+    { id: 'AS', name: 'ASIEDU' },
+    { id: 'BT', name: 'BUTLER' },
+    { id: 'CH', name: 'CHINERY' },
+    { id: 'CR', name: 'CROFFIE' },
+    { id: 'EN', name: 'ENGMANN' },
+    { id: 'SC', name: 'SCOTTON' },
+    { id: 'YB', name: 'YEBOAH' }
+  ];
+
   useEffect(() => {
     if (isOpen) {
-      fetchGradesAndClasses();
+      fetchGradesAndClassesAndHouses(); // Updated function name
       
       // Generate student ID following MG0 + 11 characters = 14 characters total
       const generateStudentId = () => {
-        const prefix = "MG0";
+        const prefix = "MG";
         
         // Get current year (last 2 digits)
         const currentYear = new Date().getFullYear().toString().slice(-2);
         
-        // Generate random digits to make it 11 characters after prefix
+        // Generate 10 more random digits to make 12 total
         // Using timestamp and random numbers for uniqueness
         const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
-        const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+        const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
         
-        // Combine: MG0 + YY + timestamp + random (ensure total 14 chars)
+        // Combine: MG + YY + timestamp + random = 14 characters
         const id = `${prefix}${currentYear}${timestamp}${random}`;
         
-        // Trim to exactly 14 characters if needed
-        return id.slice(0, 14);
+        // Ensure it's exactly 14 characters
+        return id.length === 14 ? id : id.padEnd(14, '0').slice(0, 14);
       };
       
       // Generate the ID
@@ -85,15 +100,19 @@ const NewStudentModal = ({ isOpen, onClose, onSave }) => {
         homeroom: '',
         dateOfBirth: '',
         gender: '',
+        boardingStatus: 'DAY',
+        house: '',
         specialNotes: '',
         allergies: [],
         emergencyContacts: []
       });
       setEmergencyContact({
-        name: '',
+        contactName: '',
         relationship: '',
         phoneNumber: '',
-        email: ''
+        alternatePhone: '',
+        email: '',
+        isPrimary: false
       });
       setAllergy({
         allergyType: '',
@@ -105,7 +124,7 @@ const NewStudentModal = ({ isOpen, onClose, onSave }) => {
     }
   }, [isOpen]);
 
-  const fetchGradesAndClasses = async () => {
+  const fetchGradesAndClassesAndHouses = async () => {
     setLoading(true);
     setError('');
     
@@ -115,9 +134,13 @@ const NewStudentModal = ({ isOpen, onClose, onSave }) => {
       // Ensure we have arrays even if API returns null/undefined
       const fetchedGrades = Array.isArray(result.grades) ? result.grades : [];
       const fetchedClasses = Array.isArray(result.classes) ? result.classes : [];
+      const fetchedHouses = Array.isArray(result.houses) ? result.houses : []; // If API returns houses
       
       setGrades(fetchedGrades.length > 0 ? fetchedGrades : studentService.mockStudentData?.grades || []);
       setClasses(fetchedClasses.length > 0 ? fetchedClasses : studentService.mockStudentData?.classes || []);
+      
+      // Use static houses if API doesn't return them
+      setHouses(fetchedHouses.length > 0 ? fetchedHouses : houseOptions);
       
       if (fetchedGrades.length === 0 || fetchedClasses.length === 0) {
         setError('Loaded empty data. Using default values.');
@@ -130,6 +153,7 @@ const NewStudentModal = ({ isOpen, onClose, onSave }) => {
       // Use fallback data
       setGrades(studentService.mockStudentData?.grades || []);
       setClasses(studentService.mockStudentData?.classes || []);
+      setHouses(houseOptions); // Use static houses on error
     } finally {
       setLoading(false);
     }
@@ -182,23 +206,45 @@ const prepareStudentData = () => {
 };
 
   const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    // Prepare data for backend
-    const studentData = prepareStudentData();
-    
-    console.log('Creating student with data:', studentData);
-    
-    // Call parent's onSave with properly formatted data
-    onSave(studentData);
-    onClose();
-  };
+  e.preventDefault();
+  
+  // Prepare data for backend
+  const studentData = prepareStudentData();
+  
+  // Ensure year group is a string (for 2025 format)
+  if (studentData.yearGroup) {
+    studentData.yearGroup = String(studentData.yearGroup);
+  }
+  
+  console.log('Creating student with data:', studentData);
+  
+  // Call parent's onSave with properly formatted data
+  onSave(studentData);
+  onClose();
+};
 
   const handleChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+  };
+
+  const calculateAge = (dateOfBirth) => {
+    if (!dateOfBirth) return '';
+    
+    const birthDate = new Date(dateOfBirth);
+    const today = new Date();
+    
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    // If birthday hasn't occurred yet this year, subtract 1
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    return `${age} years`;
   };
 
   const handleEmergencyContactChange = (field, value) => {
@@ -216,7 +262,7 @@ const prepareStudentData = () => {
   };
 
   const addEmergencyContact = () => {
-    if (!emergencyContact.name.trim() && !emergencyContact.phoneNumber.trim()) {
+    if (!emergencyContact.contactName.trim() && !emergencyContact.phoneNumber.trim()) {
       return;
     }
     
@@ -227,10 +273,12 @@ const prepareStudentData = () => {
     
     // Reset emergency contact form
     setEmergencyContact({
-      name: '',
+      contactName: '',
       relationship: '',
       phoneNumber: '',
-      email: ''
+      alternatePhone: '',
+      email: '',
+      isPrimary: false
     });
   };
 
@@ -318,24 +366,24 @@ const prepareStudentData = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Student ID</label>
                   <div className="flex items-center">
                     <div className="px-4 py-3 border border-r-0 border-gray-200 rounded-l-xl bg-gray-100 text-gray-700 font-medium">
-                      MG0
+                      MG
                     </div>
                     <input
                       type="text"
-                      value={formData.studentId.replace('MG0', '')}
+                      value={formData.studentId.replace('MG', '')}
                       onChange={(e) => {
-                        // Only allow numbers, max 11 digits
-                        const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 11);
-                        handleChange('studentId', `MG0${value}`);
+                        // Only allow numbers, max 12 digits (to make MG + 12 = 14)
+                        const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 12);
+                        handleChange('studentId', `MG${value}`);
                       }}
-                      placeholder="11000501225"
+                      placeholder="012345678912"  // 12-digit placeholder
                       className="w-full px-4 py-3 border border-gray-200 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 bg-white hover:bg-gray-50"
-                      maxLength={11}
+                      maxLength={12}  // 12 digits
                       required
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Enter 11 digits (Example: 11000501225)
+                    Enter 12 digits after "MG" (Example: 012345678912)
                   </p>
                   {formData.studentId.length > 3 && (
                     <p className={`text-xs mt-1 ${
@@ -345,7 +393,7 @@ const prepareStudentData = () => {
                     </p>
                   )}
                 </div>
-                {/* Gender field remains the same */}
+                {/* Gender field */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
                   <div className="relative">
@@ -355,11 +403,7 @@ const prepareStudentData = () => {
                       className="w-full pl-4 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 appearance-none bg-white hover:bg-gray-50 cursor-pointer"
                       required
                     >
-                      <option value="">Select gender</option>
-                      <option value="Male">Male</option>
                       <option value="Female">Female</option>
-                      <option value="Other">Other</option>
-                      <option value="Prefer not to say">Prefer not to say</option>
                     </select>
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -369,7 +413,7 @@ const prepareStudentData = () => {
                   </div>
                 </div>
               
-              {/* Boarding Status field - new field */}
+              {/* Boarding Status field */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Boarding Status</label>
                 <div className="relative">
@@ -377,6 +421,7 @@ const prepareStudentData = () => {
                     value={formData.boardingStatus}
                     onChange={(e) => handleChange('boardingStatus', e.target.value)}
                     className="w-full pl-4 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 appearance-none bg-white hover:bg-gray-50 cursor-pointer"
+                    required
                   >
                     <option value="DAY">Day Student</option>
                     <option value="BOARDING">Boarding Student</option>
@@ -387,11 +432,86 @@ const prepareStudentData = () => {
                     </svg>
                   </div>
                 </div>
-               </div> 
+              </div>
+
+              {/* House Selection - NEW FIELD */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">House</label>
+                <div className="relative">
+                  <select
+                    value={formData.house}
+                    onChange={(e) => handleChange('house', e.target.value)}
+                    className="w-full pl-4 pr-10 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 appearance-none bg-white hover:bg-gray-50 cursor-pointer"
+                  >
+                    <option value="">Select House</option>
+                    {houses.map((house) => (
+                      <option key={house.id || house.houseid} value={house.id || house.houseid}>
+                        {house.name || house.housename} ({house.id || house.houseid})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Select the student's house (for boarding students)
+                </p>
+              </div>
+
+              {/* Year group - NEW FIELD */}
+              <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-indigo-100 rounded-lg">
+                    <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Academic Year Information</h3>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Year Group *</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={formData.yearGroup}
+                        onChange={(e) => {
+                          // Only allow numbers and ensure it's a 4-digit year
+                          const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                          handleChange('yearGroup', value);
+                        }}
+                        placeholder="e.g., 2025"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 bg-white hover:bg-gray-50"
+                        required
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Enter the academic year (e.g., 2025 for 2024-2025 academic year)
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Year Joined</label>
+                    <input
+                      type="date"
+                      value={formData.yearJoined || new Date().toISOString().split('T')[0]}
+                      onChange={(e) => handleChange('yearJoined', e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 bg-white hover:bg-gray-50"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
               </div>
             </div>
 
-            {/* Personal Details */}
+            {/* Rest of the form remains the same... */}
+            {/* Personal Details, Academic Information, Allergies, Emergency Contacts sections remain unchanged */}
+            
+            {/* Personal Details - unchanged */}
             <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-green-100 rounded-lg">
@@ -430,9 +550,25 @@ const prepareStudentData = () => {
                     type="date"
                     value={formData.dateOfBirth}
                     onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+                    max={new Date().toISOString().split('T')[0]} // Prevents future dates
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 bg-white hover:bg-gray-50"
                     required
                   />
+                  {formData.dateOfBirth && (
+                    <div className="mt-2 flex items-center">
+                      <div className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium inline-flex items-center">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Age: {calculateAge(formData.dateOfBirth)}
+                      </div>
+                    </div>
+                  )}
+                  {formData.dateOfBirth && new Date(formData.dateOfBirth) > new Date() && (
+                    <p className="text-sm text-red-600 mt-1">
+                      Date of birth cannot be in the future
+                    </p>
+                  )}
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Special Notes</label>
@@ -447,7 +583,7 @@ const prepareStudentData = () => {
               </div>
             </div>
 
-            {/* Academic Information */}
+            {/* Academic Information - unchanged */}
             <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-purple-100 rounded-lg">
@@ -525,7 +661,7 @@ const prepareStudentData = () => {
               </div>
             </div>
 
-            {/* Allergies Section */}
+            {/* Allergies Section - unchanged */}
             <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-red-100 rounded-lg">
@@ -537,7 +673,7 @@ const prepareStudentData = () => {
               </div>
 
               {/* Display existing allergies OR "None" in green */}
-              {formData.allergies.length > 0 ? (
+              {formData.allergies && formData.allergies.length > 0 ? (
                 <div className="mb-4 space-y-2">
                   {formData.allergies.map((allergyItem, index) => (
                     <div key={index} className="p-3 bg-red-50 rounded-lg border border-red-100">
@@ -551,7 +687,9 @@ const prepareStudentData = () => {
                           }`}>
                             {allergyItem.severity}
                           </span>
-                          <span className="font-medium text-gray-900">{allergyItem.allergyType}</span>
+                          <span className="font-medium text-gray-900">
+                            {typeof allergyItem.allergyType === 'string' ? allergyItem.allergyType : JSON.stringify(allergyItem.allergyType)}
+                          </span>
                         </div>
                         <button
                           type="button"
@@ -570,7 +708,9 @@ const prepareStudentData = () => {
                         </p>
                       )}
                       {allergyItem.notes && (
-                        <p className="text-sm text-gray-600">{allergyItem.notes}</p>
+                        <p className="text-sm text-gray-600">
+                          {allergyItem.notes}
+                        </p>
                       )}
                     </div>
                   ))}
@@ -654,7 +794,7 @@ const prepareStudentData = () => {
               </button>
             </div>
 
-            {/* Emergency Contacts */}
+            {/* Emergency Contacts - unchanged */}
             <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-yellow-100 rounded-lg">
@@ -671,10 +811,18 @@ const prepareStudentData = () => {
                   {formData.emergencyContacts.map((contact, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-100">
                       <div>
-                        <p className="font-medium text-gray-900">{contact.name}</p>
+                        <p className="font-medium text-gray-900">{contact.contactName}</p>
                         <p className="text-sm text-gray-600">{contact.relationship} • {contact.phoneNumber}</p>
+                        {contact.alternatePhone && (
+                          <p className="text-sm text-gray-600">Alt: {contact.alternatePhone}</p>
+                        )}
                         {contact.email && (
                           <p className="text-sm text-gray-600">{contact.email}</p>
+                        )}
+                        {contact.isPrimary && (
+                          <span className="inline-block px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full mt-1">
+                            Primary Contact
+                          </span>
                         )}
                       </div>
                       <button
@@ -701,7 +849,7 @@ const prepareStudentData = () => {
                     onChange={(e) => handleEmergencyContactChange('contactName', e.target.value)}
                     placeholder="Full name"
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 bg-white hover:bg-gray-50"
-                    required
+                    
                   />
                 </div>
                 <div>
@@ -769,7 +917,7 @@ const prepareStudentData = () => {
               </button>
             </div>
 
-            {/* Submit Button - with rounded bottom corners */}
+            {/* Submit Button */}
             <div className="flex justify-end pt-4">
               <button
                 type="submit"

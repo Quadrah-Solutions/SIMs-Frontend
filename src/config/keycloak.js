@@ -1,16 +1,8 @@
 import Keycloak from "keycloak-js";
 
-// Prefer env → fallback to current host → final hard fallback
-const keycloakHost =
-  import.meta.env.VITE_HOST_IP ||
-  window.location.hostname ||
-  "192.168.8.102";
-
-// Always match the current page protocol
-const protocol = window.location.protocol.replace(":", "");
-
+// Use the FULL URL from env instead of constructing it
 const keycloakConfig = {
-  url: `${protocol}://${keycloakHost}/auth`,
+  url: import.meta.env.VITE_KEYCLOAK_URL || "http://localhost:8081",
   realm: import.meta.env.VITE_KEYCLOAK_REALM ?? "SIMs",
   clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? "sims_frontend",
 };
@@ -21,4 +13,3 @@ console.log("🔧 Keycloak Config:", keycloakConfig);
 const keycloak = new Keycloak(keycloakConfig);
 
 export default keycloak;
-

@@ -13,14 +13,14 @@ import {
 function Sidebar({ currentPath, collapsed, toggleSidebar, isAdmin }) {
   const navigate = useNavigate();
 
-  // Define the navigation items - Management only shown for admins
+  // Define the navigation items
   const sidebarItems = [
     { path: "/", label: "Dashboard", icon: <FiHome />, alwaysShow: true },
-    { path: "/students", label: "Students", icon: <FiUsers />, alwaysShow: true },
+    // Students is admin-only
+    { path: "/students", label: "Students", icon: <FiUsers />, alwaysShow: false, adminOnly: true },
     { path: "/visits", label: "Visits", icon: <FiCalendar />, alwaysShow: true },
     { path: "/medications", label: "Medications", icon: <FiDroplet />, alwaysShow: true },
-    { path: "/analytics", label: "Reports & Analytics", icon: <FiBarChart2 />, alwaysShow: true },
-    // Management is admin-only
+    { path: "/analytics", label: "Reports & Analytics", icon: <FiBarChart2 />, alwaysShow: false, adminOnly: true },
     { path: "/management", label: "User Management", icon: <FiSettings />, alwaysShow: false, adminOnly: true },
   ];
 

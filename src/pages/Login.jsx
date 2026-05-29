@@ -180,7 +180,7 @@ export default function Login() {
           <div className="absolute inset-0 bg-gradient-to-br from-violet-500/20 to-blue-500/20"></div>
           <img
             className="object-cover w-full h-full"
-            src="https://scontent.facc1-1.fna.fbcdn.net/v/t39.30808-6/491789013_1102721401898736_6299064463602769695_n.jpg?_nc_cat=111&ccb=1-7&_nc_sid=127cfc&_nc_ohc=EP40HLnIhgoQ7kNvwFz71GO&_nc_oc=AdnJjLz7IX4qLlx9BksTOl56gK76-GJuZvy7ykzypFpOOAV9i780HUmoI9ZY3jmpFi4&_nc_zt=23&_nc_ht=scontent.facc1-1.fna&_nc_gid=fZdF8qyRVjuh0fAXdSrmAg&oh=00_AfvqAlDLkvf1bhUEodt-yocKVXd0jl1AsxtGgRa_j9VEaQ&oe=698393E6"
+            src="/images/syte_gate.jpg"
             alt="Mfantsiman School Gate"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 via-transparent to-transparent flex items-end">

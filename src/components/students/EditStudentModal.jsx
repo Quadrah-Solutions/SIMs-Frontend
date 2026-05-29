@@ -4,18 +4,31 @@ import { studentService } from "../../services/studentService";
 
 const EditStudentModal = ({ isOpen, onClose, onSave, student, grades = [], classes = [] }) => {
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    studentId: '',
-    gradeLevel: '',
-    homeroom: '',
-    dateOfBirth: '',
-    gender: '',
-    boardingStatus: 'DAY',
-    specialNotes: '',
-    allergies: [],
-    emergencyContacts: []
-  });
+  firstName: '',
+  lastName: '',
+  studentId: '',
+  gradeLevel: '',
+  homeroom: '',
+  dateOfBirth: '',
+  gender: '',
+  boardingStatus: 'DAY',
+  house: '', // Add this
+  specialNotes: '',
+  allergies: [],
+  emergencyContacts: []
+});
+
+// Add houseOptions constant (same as above)
+const houseOptions = [
+  { id: 'AD', name: 'ADDO' },
+  { id: 'AS', name: 'ASIEDU' },
+  { id: 'BT', name: 'BUTLER' },
+  { id: 'CH', name: 'CHINERY' },
+  { id: 'CR', name: 'CROFFIE' },
+  { id: 'EN', name: 'ENGMANN' },
+  { id: 'SC', name: 'SCOTTON' },
+  { id: 'YB', name: 'YEBOAH' }
+];
 
   // For emergency contact form
   const [emergencyContact, setEmergencyContact] = useState({
@@ -41,40 +54,122 @@ const EditStudentModal = ({ isOpen, onClose, onSave, student, grades = [], class
   const [allergyToEdit, setAllergyToEdit] = useState(null);
   const [contactToEdit, setContactToEdit] = useState(null);
 
+  const calculateAge = (dateOfBirth) => {
+    if (!dateOfBirth) return '';
+    
+    const birthDate = new Date(dateOfBirth);
+    const today = new Date();
+    
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    // If birthday hasn't occurred yet this year, subtract 1
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    return `${age} years`;
+  };
+
   // Common severity options
   const severityOptions = ['Mild', 'Moderate', 'Severe', 'Life-threatening'];
 
   // Helper function to parse allergies from string to array
   const parseAllergiesFromString = (allergiesString) => {
     if (!allergiesString || typeof allergiesString !== 'string') {
-      return [];
+        return [];
     }
     
     const trimmed = allergiesString.trim();
     if (!trimmed || trimmed.toLowerCase() === 'none') {
-      return [];
+        return [];
     }
     
-    // Split by comma and clean up
+    // Check if it's already an object/array
+    if (typeof allergiesString === 'object') {
+        if (Array.isArray(allergiesString)) {
+        // Already an array - validate each item
+        return allergiesString.map(item => {
+            if (typeof item === 'string') {
+            return {
+                allergyType: item,
+                severity: 'Mild',
+                reaction: '',
+                notes: ''
+            };
+            } else if (typeof item === 'object' && item !== null) {
+            // Ensure all required fields exist
+            return {
+                allergyType: item.allergyType || '',
+                severity: item.severity || 'Mild',
+                reaction: item.reaction || '',
+                notes: item.notes || ''
+            };
+            }
+            return null;
+        }).filter(item => item && item.allergyType);
+        }
+        
+        // Single object
+        if (allergiesString.allergyType) {
+        return [{
+            allergyType: allergiesString.allergyType || '',
+            severity: allergiesString.severity || 'Mild',
+            reaction: allergiesString.reaction || '',
+            notes: allergiesString.notes || ''
+        }];
+        }
+        
+        return [];
+    }
+    
+    // It's a string - split by comma
     return trimmed
-      .split(',')
-      .map(item => item.trim())
-      .filter(item => item && item.toLowerCase() !== 'none')
-      .map(item => ({
+        .split(',')
+        .map(item => item.trim())
+        .filter(item => item && item.toLowerCase() !== 'none')
+        .map(item => ({
         allergyType: item,
         severity: 'Mild', // Default severity
         reaction: '',
         notes: ''
-      }));
-  };
+        }));
+    };
 
   useEffect(() => {
-    if (isOpen && student) {
-      // Parse allergies from string to array format
-      const parsedAllergies = parseAllergiesFromString(student.allergies);
-      
-      // Initialize form with student data
-      setFormData({
+  if (isOpen && student) {
+    console.log('Original student allergies:', student.allergies);
+    console.log('Type of allergies:', typeof student.allergies);
+    
+    let parsedAllergies = [];
+    
+    if (student.allergies) {
+      if (Array.isArray(student.allergies)) {
+        // Already an array
+        parsedAllergies = student.allergies.map(item => {
+          if (typeof item === 'string') {
+            return {
+              allergyType: item,
+              severity: 'Mild',
+              reaction: '',
+              notes: ''
+            };
+          }
+          return item; // Already an object
+        });
+      } else if (typeof student.allergies === 'object') {
+        // Single object
+        parsedAllergies = [student.allergies];
+      } else if (typeof student.allergies === 'string') {
+        // String that needs parsing
+        parsedAllergies = parseAllergiesFromString(student.allergies);
+      }
+    }
+    
+    console.log('Parsed allergies:', parsedAllergies);
+    
+    // Initialize form with student data
+    setFormData({
         firstName: student.firstName || '',
         lastName: student.lastName || '',
         studentId: student.studentId || '',
@@ -83,18 +178,19 @@ const EditStudentModal = ({ isOpen, onClose, onSave, student, grades = [], class
         dateOfBirth: student.dateOfBirth || '',
         gender: student.gender || '',
         boardingStatus: student.boardingStatus || 'DAY',
+        house: student.house || '', // Add this
         specialNotes: student.specialNotes || '',
         allergies: parsedAllergies,
         emergencyContacts: student.emergencyContacts || []
-      });
-      
-      // Small delay to trigger animation
-      setTimeout(() => setIsVisible(true), 10);
-    } else {
-      setIsVisible(false);
-      resetForm();
-    }
-  }, [isOpen, student]);
+        });
+    
+    // Small delay to trigger animation
+    setTimeout(() => setIsVisible(true), 10);
+  } else {
+    setIsVisible(false);
+    resetForm();
+  }
+}, [isOpen, student]);
 
   const resetForm = () => {
     setFormData({
@@ -261,47 +357,53 @@ const EditStudentModal = ({ isOpen, onClose, onSave, student, grades = [], class
   };
 
   // Function to prepare data for backend
-    // In EditStudentModal.js, update prepareStudentData function:
     const prepareStudentData = () => {
-    const data = { ...formData };
-    
-    // Convert date string to LocalDate format (YYYY-MM-DD)
-    if (data.dateOfBirth) {
-        data.dateOfBirth = data.dateOfBirth;
-    }
-    
-    // IMPORTANT: The backend expects List<Allergy>, not a string
-    // Convert formData.allergies to the correct format
-    if (data.allergies && Array.isArray(data.allergies)) {
-        // Ensure each allergy has all required fields
-        data.allergies = data.allergies
-        .filter(allergy => allergy && allergy.allergyType && allergy.allergyType.trim() !== "")
-        .map(allergy => ({
-            allergyType: allergy.allergyType,
-            severity: allergy.severity || 'Mild',
-            reaction: allergy.reaction || '',
-            notes: allergy.notes || ''
-        }));
-    } else {
-        data.allergies = [];
-    }
-    
-    // Ensure emergencyContacts is properly formatted
-    if (data.emergencyContacts && Array.isArray(data.emergencyContacts)) {
-        // Filter out any empty emergency contacts
-        data.emergencyContacts = data.emergencyContacts.filter(contact => 
-        contact && (contact.contactName || contact.phoneNumber)
-        );
-    } else {
-        data.emergencyContacts = [];
-    }
-    
-    // Remove any fields that shouldn't be sent
-    delete data.id; // Don't send ID in update body
-    
-    console.log('Prepared student data for backend:', data);
-    return data;
-    };
+        const data = { ...formData };
+        
+        // Convert date string to LocalDate format (YYYY-MM-DD)
+        if (data.dateOfBirth) {
+            data.dateOfBirth = data.dateOfBirth;
+        }
+        
+        // IMPORTANT: For allergies, don't send the ID to avoid the foreign key constraint issue
+        if (data.allergies && Array.isArray(data.allergies)) {
+            // Create new allergy objects WITHOUT IDs
+            data.allergies = data.allergies
+            .filter(allergy => allergy && allergy.allergyType && allergy.allergyType.trim() !== "")
+            .map(allergy => ({
+                // DON'T include id field
+                allergyType: allergy.allergyType,
+                severity: allergy.severity || 'Mild',
+                reaction: allergy.reaction || '',
+                notes: allergy.notes || ''
+            }));
+        } else {
+            data.allergies = [];
+        }
+        
+        // For emergency contacts, also remove IDs if they exist
+        if (data.emergencyContacts && Array.isArray(data.emergencyContacts)) {
+            data.emergencyContacts = data.emergencyContacts
+            .filter(contact => contact && (contact.contactName || contact.phoneNumber))
+            .map(contact => ({
+                // DON'T include id field
+                contactName: contact.contactName || '',
+                relationship: contact.relationship || '',
+                phoneNumber: contact.phoneNumber || '',
+                alternatePhone: contact.alternatePhone || '',
+                email: contact.email || '',
+                isPrimary: contact.isPrimary || false
+            }));
+        } else {
+            data.emergencyContacts = [];
+        }
+        
+        // Remove any fields that shouldn't be sent
+        delete data.id; // Don't send student ID in update body
+        
+        console.log('Prepared student data for backend:', data);
+        return data;
+        };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -424,15 +526,32 @@ const EditStudentModal = ({ isOpen, onClose, onSave, student, grades = [], class
                     disabled // Student ID should not be editable
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth</label>
-                  <input
+               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth</label>
+                <input
                     type="date"
                     value={formData.dateOfBirth}
-                    onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                    onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+                    max={new Date().toISOString().split('T')[0]} // Prevents future dates
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 bg-white hover:bg-gray-50"
                     required
-                  />
+                />
+                {formData.dateOfBirth && (
+                    <div className="mt-2 flex items-center">
+                    <div className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium inline-flex items-center">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Age: {calculateAge(formData.dateOfBirth)}
+                    </div>
+                    </div>
+                )}
+                {/* Add validation message */}
+                {formData.dateOfBirth && new Date(formData.dateOfBirth) > new Date() && (
+                    <p className="text-sm text-red-600 mt-1">
+                    Date of birth cannot be in the future
+                    </p>
+                )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
@@ -443,11 +562,7 @@ const EditStudentModal = ({ isOpen, onClose, onSave, student, grades = [], class
                       className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 appearance-none bg-white hover:bg-gray-50 cursor-pointer"
                       required
                     >
-                      <option value="">Select gender</option>
-                      <option value="Male">Male</option>
                       <option value="Female">Female</option>
-                      <option value="Other">Other</option>
-                      <option value="Prefer not to say">Prefer not to say</option>
                     </select>
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -473,6 +588,29 @@ const EditStudentModal = ({ isOpen, onClose, onSave, student, grades = [], class
                       </svg>
                     </div>
                   </div>
+                </div>
+
+                <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">House</label>
+                <div className="relative">
+                    <select
+                    value={formData.house}
+                    onChange={(e) => handleInputChange('house', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 appearance-none bg-white hover:bg-gray-50 cursor-pointer"
+                    >
+                    <option value="">Select House (Optional)</option>
+                    {houseOptions.map((house) => (
+                        <option key={house.id} value={house.id}>
+                        {house.name} ({house.id})
+                        </option>
+                    ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    </div>
+                </div>
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Special Notes</label>
@@ -561,19 +699,21 @@ const EditStudentModal = ({ isOpen, onClose, onSave, student, grades = [], class
               {/* Display existing allergies */}
               {formData.allergies && formData.allergies.length > 0 ? (
                 <div className="mb-4 space-y-2">
-                  {formData.allergies.map((allergyItem, index) => (
+                    {formData.allergies.map((allergyItem, index) => (
                     <div key={index} className="p-3 bg-red-50 rounded-lg border border-red-100">
-                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             allergyItem.severity === 'Life-threatening' ? 'bg-red-500 text-white' :
                             allergyItem.severity === 'Severe' ? 'bg-orange-500 text-white' :
                             allergyItem.severity === 'Moderate' ? 'bg-yellow-500 text-white' :
                             'bg-green-500 text-white'
-                          }`}>
-                            {allergyItem.severity}
-                          </span>
-                          <span className="font-medium text-gray-900">{allergyItem.allergyType}</span>
+                            }`}>
+                            {allergyItem.severity} {/* Make sure this is a string */}
+                            </span>
+                            <span className="font-medium text-gray-900">
+                            {typeof allergyItem.allergyType === 'string' ? allergyItem.allergyType : JSON.stringify(allergyItem.allergyType)}
+                            </span>
                         </div>
                         <div className="flex gap-2">
                           <button
@@ -718,44 +858,34 @@ const EditStudentModal = ({ isOpen, onClose, onSave, student, grades = [], class
               {/* Display existing emergency contacts */}
               {formData.emergencyContacts && formData.emergencyContacts.length > 0 ? (
                 <div className="mb-4 space-y-2">
-                  {formData.emergencyContacts.map((contact, index) => (
-                    <div key={index} className="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-                      <div className="flex items-center justify-between mb-2">
+                    {formData.emergencyContacts.map((contact, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-100">
                         <div>
-                          <p className="font-medium text-gray-900">{contact.contactName}</p>
-                          <p className="text-sm text-gray-600">{contact.relationship} • {contact.phoneNumber}</p>
-                          {contact.email && (
+                        <p className="font-medium text-gray-900">{contact.contactName}</p>
+                        <p className="text-sm text-gray-600">{contact.relationship} • {contact.phoneNumber}</p>
+                        {contact.alternatePhone && (
+                            <p className="text-sm text-gray-600">Alt: {contact.alternatePhone}</p>
+                        )}
+                        {contact.email && (
                             <p className="text-sm text-gray-600">{contact.email}</p>
-                          )}
-                          {contact.isPrimary && (
-                            <span className="inline-block mt-1 px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                              Primary Contact
+                        )}
+                        {contact.isPrimary && (
+                            <span className="inline-block px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full mt-1">
+                            Primary Contact
                             </span>
-                          )}
+                        )}
                         </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => editEmergencyContact(index)}
-                            className="text-blue-500 hover:text-blue-700 p-1"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeEmergencyContact(index)}
-                            className="text-red-500 hover:text-red-700 p-1"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
+                        <button
+                        type="button"
+                        onClick={() => removeEmergencyContact(index)}
+                        className="text-red-500 hover:text-red-700 p-1"
+                        >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        </button>
                     </div>
-                  ))}
+                    ))}
                 </div>
               ) : (
                 <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
@@ -778,7 +908,6 @@ const EditStudentModal = ({ isOpen, onClose, onSave, student, grades = [], class
                     onChange={(e) => handleEmergencyContactChange('contactName', e.target.value)}
                     placeholder="Full name"
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 bg-white hover:bg-gray-50"
-                    required
                   />
                 </div>
                 <div>

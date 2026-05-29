@@ -468,8 +468,8 @@ The infirmary maintains comprehensive records of all student interactions, ensur
     
     if (medicationUsage && medicationUsage.length > 0) {
       const medData = medicationUsage.slice(0, 15).map(med => [
-        med.name || 'N/A',
-        med.quantity || 0,
+        med.name || med.medicationName || 'N/A',
+        med.quantity || med.dosage || 0,
         med.unit || 'N/A',
         med.students || 0
       ]);
@@ -496,6 +496,11 @@ The infirmary maintains comprehensive records of all student interactions, ensur
         },
         margin: { left: 20, right: 20 }
       });
+    } else {
+      // Show message if no medication data
+      doc.setFontSize(10);
+      doc.setTextColor(150, 150, 150);
+      doc.text('No medication administration data available', 30, medY + 10);
     }
     
     // Recent Visits Table

@@ -141,8 +141,9 @@ export const visitService = {
       condition: this.determineCondition(visit),
       disposition: visit.disposition,
       emergencyFlag: visit.emergencyFlag || false,
-      medications: visit.medications || [],
-      treatments: visit.treatments || [],
+      // Preserve medications and treatments as-is from the response
+      medications: visit.medications ? [...visit.medications] : [],
+      treatments: visit.treatments ? [...visit.treatments] : [],
       original: visit
     })) || [];
     

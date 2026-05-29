@@ -3,12 +3,15 @@ import { useStudents } from '../hooks/useStudents';
 import StudentFilters from '../components/students/StudentFilters';
 import StudentsTable from '../components/students/StudentsTable';
 import NewStudentModal from '../components/students/NewStudentModal';
-import EditStudentModal from '../components/students/EditStudentModal'; // Add this import
+import EditStudentModal from '../components/students/EditStudentModal';
 import BulkUploadModal from '../components/students/BulkUploadModal';
 import { useNotification } from '../components/common/NotificationProvider';
 import StudentMedicalHistory from '../components/students/StudentMedicalHistory';
 import { useSearchParams } from 'react-router-dom';
-import { studentService } from '../services/studentService'; // Make sure you have this service
+import { studentService } from '../services/studentService';
+
+// IMPORT THE AlumniTab COMPONENT - MAKE SURE THIS FILE EXISTS
+import AlumniTab from '../components/students/AlumniTab'; // Add this import
 
 const Students = () => {
   const { 
@@ -24,23 +27,23 @@ const Students = () => {
     refetch, 
     updateFilters,
     createStudent,
-    updateStudent, // Add this from your hook
+    updateStudent,
     bulkUploadStudents  
   } = useStudents();
 
   const [isNewStudentModalOpen, setIsNewStudentModalOpen] = useState(false);
   const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
   const [isMedicalHistoryModalOpen, setIsMedicalHistoryModalOpen] = useState(false);
-  const [isEditStudentModalOpen, setIsEditStudentModalOpen] = useState(false); // Add this
+  const [isEditStudentModalOpen, setIsEditStudentModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [bulkUploadLoading, setBulkUploadLoading] = useState(false); 
-  const [studentToEdit, setStudentToEdit] = useState(null); // Add this
+  const [studentToEdit, setStudentToEdit] = useState(null);
+  const [activeTab, setActiveTab] = useState('current');
 
   const { success, error: showError } = useNotification();
 
-  // Add useSearchParams hook
   const [searchParams, setSearchParams] = useSearchParams();
-  const actionParam = searchParams.get('action'); // Get the action parameter
+  const actionParam = searchParams.get('action');
 
   const openMedicalHistoryModal = (student) => {
     setSelectedStudent(student);
@@ -61,15 +64,13 @@ const Students = () => {
     studentsCount: students ? students.length : 0
   });
 
-  // Add useEffect with dependencies
   useEffect(() => {
     if (actionParam === 'new') {
       setIsNewStudentModalOpen(true);
-      // Clean up the URL parameter after opening modal
       searchParams.delete('action');
       setSearchParams(searchParams);
     }
-  }, [actionParam, searchParams, setSearchParams]); // Added dependencies
+  }, [actionParam, searchParams, setSearchParams]);
 
   const handleAddIndividualStudent = () => {
     console.log('Add individual student clicked');
@@ -91,7 +92,6 @@ const Students = () => {
 
   const handleCloseNewStudentModal = () => {
     setIsNewStudentModalOpen(false);
-    // Clean up URL parameters
     if (searchParams.get('action') === 'new') {
       searchParams.delete('action');
       setSearchParams(searchParams);
@@ -117,13 +117,9 @@ const Students = () => {
       console.log('Saving new student:', studentData);
       await createStudent(studentData);
       setIsNewStudentModalOpen(false);
-
-      // Show success notification
       success('Student added successfully!');
-      // No need to manually refetch as createStudent already updates the state
     } catch (err) {
       console.error('Failed to save student:', err);
-      // Show error notification
       showError(`Failed to save student: ${err.message}`);
     }
   };
@@ -140,7 +136,6 @@ const Students = () => {
         throw new Error('Student data is required');
       }
       
-      // Make sure updateStudent exists and is a function
       if (typeof updateStudent !== 'function') {
         throw new Error('updateStudent is not available');
       }
@@ -150,43 +145,36 @@ const Students = () => {
       setIsEditStudentModalOpen(false);
       setStudentToEdit(null);
       
-      // Show success notification
       success('Student updated successfully!');
-      
-      // Refresh the student list
       refetch();
       
     } catch (err) {
       console.error('Failed to update student:', err);
       showError(`Failed to update student: ${err.message}`);
-      throw err; // Re-throw to show error in modal
+      throw err;
     }
-  }, [updateStudent, success, showError, refetch]); // Add dependencies
+  }, [updateStudent, success, showError, refetch]);
 
   const handleBulkUploadSubmit = async (file) => {
     try {
       console.log('Uploading bulk students file:', file.name);
-      setBulkUploadLoading(true); // Use local loading state
+      setBulkUploadLoading(true);
       
-      // Create FormData for file upload
       const formData = new FormData();
       formData.append('file', file);
       
-      // Call bulk upload API through your hook
       await bulkUploadStudents(formData);
       
       setIsBulkUploadModalOpen(false);
       success('Students uploaded successfully! File is being processed.');
-      
-      // Refresh the student list
       refetch();
       
     } catch (err) {
       console.error('Failed to upload bulk students:', err);
       showError(`Failed to upload students: ${err.message}`);
-      throw err; // Re-throw to show error in modal
+      throw err;
     } finally {
-      setBulkUploadLoading(false); // Reset loading state
+      setBulkUploadLoading(false);
     }
   };
 
@@ -245,25 +233,72 @@ const Students = () => {
           <p className="text-gray-600 mt-2">Manage student records and information</p>
         </div>
 
-        <StudentFilters
-          filters={filters}
-          grades={grades}
-          classes={classes}
-          onFilterChange={updateFilters}
-          onAddStudent={handleAddIndividualStudent}
-          onBulkUpload={handleBulkUpload}
-        />
-
-        <StudentsTable
-          students={students || []}  
-          loading={loading}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalCount={totalCount}
-          onPageChange={handlePageChange}
-          onViewMedicalHistory={openMedicalHistoryModal}
-          onEditStudent={openEditStudentModal} // Pass the edit handler
-        />
+        {/* Tabs */}
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('current')}
+                className={`
+                  py-3 px-1 border-b-2 font-medium text-sm
+                  ${activeTab === 'current'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+                `}
+              >
+                Current Students
+                <span className="ml-2 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                  {students.filter(s => !s.isAlumni).length}
+                </span>
+              </button>
+              
+              <button
+                onClick={() => setActiveTab('alumni')}
+                className={`
+                  py-3 px-1 border-b-2 font-medium text-sm
+                  ${activeTab === 'alumni'
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+                `}
+              >
+                Alumni
+                <span className="ml-2 bg-purple-100 text-purple-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                  {students.filter(s => s.isAlumni).length}
+                </span>
+              </button>
+            </nav>
+          </div>
+        </div>
+        
+        {/* Tab Content - ONLY ONE SET OF CONTENT BASED ON ACTIVE TAB */}
+        {activeTab === 'current' ? (
+          <>
+            <StudentFilters
+              filters={filters}
+              grades={grades}
+              classes={classes}
+              onFilterChange={updateFilters}
+              onAddStudent={handleAddIndividualStudent}
+              onBulkUpload={handleBulkUpload}
+            />
+            
+            <StudentsTable
+              students={students.filter(s => !s.isAlumni)}
+              loading={loading}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              onPageChange={handlePageChange}
+              onViewMedicalHistory={openMedicalHistoryModal}
+              onEditStudent={openEditStudentModal}
+              refetch={refetch} // Add this line
+            />
+          </>
+        ) : (
+          <AlumniTab />
+        )}
+        
+        {/* REMOVED: The duplicate StudentFilters and StudentsTable components go here */}
       </div>
 
       {/* New Student Modal */}

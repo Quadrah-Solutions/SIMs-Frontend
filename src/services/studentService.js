@@ -284,6 +284,78 @@ export const studentService = {
     }
   },
 
+  // Add this method to your studentService object
+async searchAllStudents(searchTerm, limit = 500) {
+  try {
+    console.log(`🔍 Searching ALL students for: "${searchTerm}"`);
+    
+    // If search term is too short, return empty
+    if (!searchTerm || searchTerm.length < 2) {
+      return [];
+    }
+    
+    // Use a very large page size to get all matching results
+    // Adjust the limit based on your expected number of students
+    const queryParams = new URLSearchParams({
+      page: '0', // Always get first page
+      size: limit.toString(), // Get many results at once
+      search: searchTerm
+    });
+    
+    const url = `${API_BASE_URL}/students?${queryParams}`;
+    console.log('Search URL:', url);
+    
+    // Use fetchWithAuthRetry for proper authentication
+    const response = await fetchWithAuthRetry(url, {
+      method: 'GET'
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Search failed: ${response.status} - ${errorText}`);
+    }
+    
+    const pageData = await response.json();
+    console.log('Search results count:', pageData.content?.length || 0);
+    
+    // Transform the data
+    const transformedStudents = pageData.content?.map(student => ({
+      id: student.id,
+      studentId: student.studentId,
+      firstName: student.firstName || '',
+      lastName: student.lastName || '',
+      fullName: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+      gradeLevel: student.gradeLevel || student.grade?.name || 'N/A',
+      homeroom: student.homeroom || student.className || 'N/A',
+      house: student.house || 'N/A',
+      dateOfBirth: student.dateOfBirth,
+      gender: student.gender
+    })) || [];
+    
+    return transformedStudents;
+    
+  } catch (error) {
+    console.error('Error searching students:', error);
+    
+    // Fallback to client-side filtering with mock data if API fails
+    console.log('⚠️ Using client-side search with available data');
+    
+    // Try to use existing students data if available
+    if (this.cachedStudents && this.cachedStudents.length > 0) {
+      const searchLower = searchTerm.toLowerCase();
+      return this.cachedStudents.filter(student => {
+        const fullName = `${student.firstName || ''} ${student.lastName || ''}`.toLowerCase();
+        const studentId = student.studentId?.toLowerCase() || '';
+        return fullName.includes(searchLower) || studentId.includes(searchLower);
+      });
+    }
+    
+    // Last resort: mock data
+    const mockData = getMockStudents(1, 500, { search: searchTerm });
+    return mockData.students || [];
+  }
+},
+
   async processStudentResponse(response) {
     const pageData = await response.json();
     
@@ -298,7 +370,8 @@ export const studentService = {
       allergies: student.allergies || 'None',
       dateOfBirth: student.dateOfBirth,
       gender: student.gender,
-      boardingStatus: student.boardingStatus || 'DAY'
+      boardingStatus: student.boardingStatus || 'DAY',
+      house: student.house || null // ADD THIS LINE
     })) || [];
     
     return {
@@ -334,6 +407,33 @@ export const studentService = {
     }
   },
 
+  async getAlumni(filters = {}) {
+    try {
+      const queryParams = new URLSearchParams({
+        page: (filters.page || 1) - 1,
+        size: filters.size || 10,
+      });
+      
+      if (filters.search) queryParams.append('search', filters.search);
+      if (filters.graduationYear) queryParams.append('graduationYear', filters.graduationYear);
+      
+      const url = `${API_BASE_URL}/students/alumni?${queryParams}`;
+      const response = await fetchWithAuthRetry(url, { method: 'GET' });
+      
+      if (!response.ok) throw new Error('Failed to fetch alumni');
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching alumni:', error);
+      // Return mock data for testing
+      return {
+        alumni: [],
+        totalPages: 1,
+        totalCount: 0
+      };
+    }
+  },
+
   async getGrades(forceRefresh = false) {
     try {
       const grades = await fetchWithCache('/grades/all', forceRefresh);
@@ -356,6 +456,29 @@ export const studentService = {
     } catch (error) {
       console.error('[API] Error fetching grades, using mock data:', error);
       return mockStudentData.grades;
+    }
+  },
+
+  async deleteMultipleStudents(studentIds) {
+    try {
+      const url = `${API_BASE_URL}/students/bulk-delete`;
+      console.log('[API] Bulk deleting students:', url);
+      
+      const response = await fetchWithAuthRetry(url, {
+        method: 'DELETE',
+        headers: await getAuthHeader(),
+        body: JSON.stringify(studentIds)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to delete students: ${response.status} - ${errorText}`);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('[API] Error in bulk delete:', error);
+      throw error;
     }
   },
 

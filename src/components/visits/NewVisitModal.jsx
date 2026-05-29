@@ -3,6 +3,7 @@ import { useMedications } from '../../hooks/useMedications';
 import { useNotification } from '../common/NotificationProvider';
 import { medicationService } from '../../services/medicationService'; 
 import { medicalHistoryService } from '../../services/medicalHistoryService'; 
+import { studentService } from '../../services/studentService';
 
 const NewVisitModal = ({ isOpen, onClose, onSave, currentNurse, students = [] }) => {
   // Get current date and time in the correct format
@@ -15,6 +16,7 @@ const NewVisitModal = ({ isOpen, onClose, onSave, currentNurse, students = [] })
   const [filteredMedications, setFilteredMedications] = useState([]);
   const [showMedicationDropdown, setShowMedicationDropdown] = useState(false);
   const medicationDropdownRef = useRef(null);
+  const [searching, setSearching] = useState(false);
 
   const [studentMedicalHistory, setStudentMedicalHistory] = useState([]);
   const [showMedicalHistory, setShowMedicalHistory] = useState(false);
@@ -167,35 +169,49 @@ const NewVisitModal = ({ isOpen, onClose, onSave, currentNurse, students = [] })
   }, [formData.studentId]);
 
 
-  useEffect(() => {
-    if (isOpen) {
-      // Reset form data when modal opens
-      setFormData(prev => ({
-        ...prev,
-        studentId: '',
-        student: null,
-        reason: '',
-        symptoms: '',
-        observations: '',
-        vitalSigns: '',
-        disposition: '',
-        finalAssessment: '',
-        emergencyFlag: false,
-        referredBy: '',
-        nurseId: currentNurse?.id || '',
-        nurseName: currentNurse?.name || '',
-        visitDate: getCurrentDateTime(),
-        dispositionTime: getCurrentDateTime(),
-        medications: [],
-        treatments: []
-      }));
-      setSearchTerm('');
-      setFilteredStudents(students || []);
-      setTimeout(() => setIsVisible(true), 10);
-    } else {
-      setIsVisible(false);
-    }
-  }, [isOpen, currentNurse, students]);
+  // Replace the existing useEffect for modal opening:
+useEffect(() => {
+  if (isOpen) {
+    // Reset form data when modal opens
+    setFormData(prev => ({
+      ...prev,
+      studentId: '',
+      student: null,
+      reason: '',
+      symptoms: '',
+      observations: '',
+      vitalSigns: '',
+      disposition: '',
+      finalAssessment: '',
+      emergencyFlag: false,
+      referredBy: '',
+      nurseId: currentNurse?.id || '',
+      nurseName: currentNurse?.name || '',
+      visitDate: getCurrentDateTime(),
+      dispositionTime: getCurrentDateTime(),
+      medications: [],
+      treatments: []
+    }));
+    setSearchTerm('');
+    
+    // Fetch initial set of students (maybe first 50)
+    const fetchInitialStudents = async () => {
+      try {
+        const initialStudents = await studentService.getStudents(1, 100, {});
+        setFilteredStudents(initialStudents.students || []);
+      } catch (error) {
+        console.error('Error fetching initial students:', error);
+        setFilteredStudents(students || []);
+      }
+    };
+    
+    fetchInitialStudents();
+    
+    setTimeout(() => setIsVisible(true), 10);
+  } else {
+    setIsVisible(false);
+  }
+}, [isOpen, currentNurse]);
 
   // Filter students based on search term
   useEffect(() => {
@@ -224,7 +240,7 @@ const NewVisitModal = ({ isOpen, onClose, onSave, currentNurse, students = [] })
   // Filter medications based on search input
   const filterMedications = (searchValue) => {
     if (!searchValue.trim()) {
-      setFilteredMedications(medications.filter(med => med && med.currentStock > 0).slice(0, 10));
+      setFilteredMedications(medications.filter(med => med && med.currentStock > 0));
       return;
     }
 
@@ -241,8 +257,7 @@ const NewVisitModal = ({ isOpen, onClose, onSave, currentNurse, students = [] })
         const strengthMatch = med.strength?.toLowerCase().includes(lowerSearch);
         
         return nameMatch || genericMatch || categoryMatch || strengthMatch;
-      })
-      .slice(0, 10); // Limit to 10 results for better UX
+      });
 
     setFilteredMedications(filtered);
   };
@@ -586,10 +601,13 @@ const NewVisitModal = ({ isOpen, onClose, onSave, currentNurse, students = [] })
       studentId: student?.id || '',
       student: student
     }));
+    // Show the full student info in the search box
     setSearchTerm(`${student?.studentId || ''} - ${student?.firstName || ''} ${student?.lastName || ''}`);
+    // Clear the dropdown by clearing filteredStudents temporarily
+    setFilteredStudents([]);
   };
 
-  const handleSearchChange = (e) => {
+  const handleSearchChange = async (e) => {
     const value = e.target.value;
     setSearchTerm(value);
     
@@ -599,9 +617,31 @@ const NewVisitModal = ({ isOpen, onClose, onSave, currentNurse, students = [] })
         studentId: '',
         student: null
       }));
+      setFilteredStudents(students || []);
+      return;
+    }
+
+    if (value && value.length >= 2) {
+      setSearching(true);
+      try {
+        // Make API call to search ALL students (like StudentFilters does)
+        const searchResults = await studentService.getStudents(1, 1000, { search: value });
+        setFilteredStudents(searchResults.students || []);
+      } catch (error) {
+        console.error('Search error:', error);
+        // Fallback to client-side search on existing students
+        const filtered = (students || []).filter(student => 
+          student?.studentId?.toLowerCase().includes(value.toLowerCase()) ||
+          `${student?.firstName || ''} ${student?.lastName || ''}`.toLowerCase().includes(value.toLowerCase())
+        );
+        setFilteredStudents(filtered);
+      } finally {
+        setSearching(false);
+      }
+    } else {
+      setFilteredStudents(students || []);
     }
   };
-
   // Don't return early from the component - this breaks hook order
   // Move the conditional return to the end
   if (!isOpen) return null;
@@ -643,49 +683,70 @@ const NewVisitModal = ({ isOpen, onClose, onSave, currentNurse, students = [] })
         <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
           <form onSubmit={handleSubmit} className="p-6 space-y-6 bg-gray-50 scrollbar-hide">
             {/* Student Information - UPDATED */}
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900">Student Information</h3>
-                <span className="text-xs text-red-500 font-medium">* Required</span>
-              </div>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Search Student <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={handleSearchChange}
-                    placeholder="Search by Student ID or Name..."
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 bg-white hover:bg-gray-50"
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Student Information</h3>
+                  <span className="text-xs text-red-500 font-medium">* Required</span>
                 </div>
                 
-                {searchTerm && !formData.student && (
-                  <div className="mt-2 max-h-60 overflow-y-auto border border-gray-200 rounded-xl bg-white shadow-sm">
-                    {filteredStudents.length > 0 ? (
-                      filteredStudents.map(student => (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Search Student <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={handleSearchChange}
+                      placeholder="Search by Student ID or Name..."
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 bg-white hover:bg-gray-50"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                      {searching ? (
+                        <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Show loading state */}
+                  {searching && (
+                    <div className="mt-2 p-4 text-center text-gray-500 border border-gray-200 rounded-xl bg-white">
+                      <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                      <p className="mt-2 text-sm">Searching students...</p>
+                    </div>
+                  )}
+                  
+                  {/* ALWAYS show dropdown when there's a search term, even if a student is already selected */}
+                  {searchTerm && !searching && filteredStudents.length > 0 && (
+                    <div className="mt-2 max-h-96 overflow-y-auto border border-gray-200 rounded-xl bg-white shadow-lg z-10">
+                      {filteredStudents.map(student => (
                         <div
                           key={student.id}
-                          onClick={() => handleStudentSelect(student)}
-                          className="p-4 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition duration-200"
+                          onClick={() => {
+                            handleStudentSelect(student);
+                          }}
+                          className={`p-4 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition duration-200 ${
+                            formData.student?.id === student.id ? 'bg-blue-100' : ''
+                          }`}
                         >
                           <div className="flex justify-between items-center">
                             <div>
                               <div className="font-medium text-gray-900">
                                 {student.firstName} {student.lastName}
+                                {formData.student?.id === student.id && (
+                                  <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                                    Selected
+                                  </span>
+                                )}
                               </div>
                               <div className="text-sm text-gray-600">
                                 ID: {student.studentId} • Grade: {student.gradeLevel || 'N/A'}
@@ -696,15 +757,17 @@ const NewVisitModal = ({ isOpen, onClose, onSave, currentNurse, students = [] })
                             </svg>
                           </div>
                         </div>
-                      ))
-                    ) : (
-                      <div className="p-4 text-center text-gray-500">
-                        No students found matching "{searchTerm}"
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Show "no results" message when search has no matches */}
+                  {searchTerm && !searching && filteredStudents.length === 0 && (
+                    <div className="mt-2 p-4 text-center text-gray-500 border border-gray-200 rounded-xl bg-white">
+                      No students found matching "{searchTerm}"
+                    </div>
+                  )}
+                </div>
               
               {formData.student && (
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
@@ -729,6 +792,7 @@ const NewVisitModal = ({ isOpen, onClose, onSave, currentNurse, students = [] })
                       onClick={() => {
                         setFormData(prev => ({ ...prev, student: null, studentId: '' }));
                         setSearchTerm('');
+                        setFilteredStudents(students || []); // Show all students when cleared
                       }}
                       className="text-red-600 hover:text-red-800 p-2"
                     >

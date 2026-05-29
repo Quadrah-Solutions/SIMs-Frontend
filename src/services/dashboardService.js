@@ -349,7 +349,7 @@ export const dashboardService = {
 
   // Date range parsing helper
   parseDateRange(dateRange) {
-    const endDate = new Date();
+    let endDate = new Date();
     let startDate = new Date();
     
     switch (dateRange) {

@@ -210,7 +210,7 @@ const VisitsTable = ({ visits, loading, currentPage, totalPages, totalCount, onP
   };
 
   // Add this helper function to handle safe array rendering
-  const renderMedicationsOrTreatments = (items, type) => {
+    const renderMedicationsOrTreatments = (items, type) => {
     if (!items || !Array.isArray(items)) {
       return null;
     }
@@ -227,26 +227,33 @@ const VisitsTable = ({ visits, loading, currentPage, totalPages, totalCount, onP
           {type === 'medications' ? 'Medications:' : 'Treatments:'}
         </span>
         <div className="text-xs text-gray-500 space-y-1 mt-1">
-          {items.map((item, idx) => (
-            <div key={idx} className="flex items-start">
-              <span className="text-gray-400 mr-1 mt-0.5">•</span>
-              <div>
-                <span className="font-medium">
-                  {item.medicationName || item.treatmentName || item.medication?.medicationName || 'Unknown'}
-                </span>
-                {item.dosage && (
-                  <span className="text-gray-600 ml-1">
-                    ({item.dosage})
+          {items.map((item, idx) => {
+            // Handle nested medication object structure
+            const medicationName = item.medicationName || 
+                                (item.medication && item.medication.medicationName) || 
+                                'Unknown';
+            
+            return (
+              <div key={idx} className="flex items-start">
+                <span className="text-gray-400 mr-1 mt-0.5">•</span>
+                <div>
+                  <span className="font-medium">
+                    {medicationName}
                   </span>
-                )}
-                {(item.notes || item.description) && (
-                  <div className="text-gray-500 italic">
-                    {type === 'medications' ? `Notes: ${item.notes || ''}` : `Description: ${item.description || ''}`}
-                  </div>
-                )}
+                  {item.dosage && (
+                    <span className="text-gray-600 ml-1">
+                      ({item.dosage})
+                    </span>
+                  )}
+                  {item.notes && (
+                    <div className="text-gray-500 italic">
+                      Notes: {item.notes}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -480,18 +487,39 @@ const VisitsTable = ({ visits, loading, currentPage, totalPages, totalCount, onP
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {visits.map((visit) => {
-              // Call helper functions WITH the visit parameter
-              const condition = getConditionFromVisit(visit);
-              const disposition = getVisitData(visit, 'disposition');
+              // First, try to get data from original, then fallback to transformed
+              const originalVisit = visit.original || {};
+              
+              // Get medications - check both locations
+              let medications = [];
+              if (originalVisit.medications && Array.isArray(originalVisit.medications)) {
+                medications = originalVisit.medications;
+              } else if (visit.medications && Array.isArray(visit.medications)) {
+                medications = visit.medications;
+              }
+              
+              // Get treatments - check both locations
+              let treatments = [];
+              if (originalVisit.treatments && Array.isArray(originalVisit.treatments)) {
+                treatments = originalVisit.treatments;
+              } else if (visit.treatments && Array.isArray(visit.treatments)) {
+                treatments = visit.treatments;
+              }
+              
+              // Get emergency flag
+              const emergencyFlag = originalVisit.emergencyFlag !== undefined ? 
+                                  originalVisit.emergencyFlag : 
+                                  visit.emergencyFlag;
+              
+              // Get disposition
+              const disposition = originalVisit.disposition || visit.disposition;
+              
+              // Determine condition
+              const condition = emergencyFlag ? 'Critical' : 
+                              disposition === 'REFERRED_TO_HOSPITAL' ? 'Serious' :
+                              disposition === 'SENT_HOME' ? 'Moderate' : 'Stable';
+              
               const formattedOutcome = formatDisposition(disposition);
-              
-              // Get medications and treatments - ensure they are arrays
-              const medications = getVisitData(visit, 'medications') || [];
-              const treatments = getVisitData(visit, 'treatments') || [];
-              
-              // Ensure medications and treatments are arrays
-              const safeMedications = Array.isArray(medications) ? medications : [];
-              const safeTreatments = Array.isArray(treatments) ? treatments : [];
               
               return (
                 <tr key={visit.id} className="hover:bg-gray-50">
@@ -525,7 +553,7 @@ const VisitsTable = ({ visits, loading, currentPage, totalPages, totalCount, onP
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getConditionBadge(condition)}`}>
                       {condition}
                     </span>
-                    {getVisitData(visit, 'emergencyFlag') && (
+                    {emergencyFlag && (
                       <span className="ml-1 inline-flex px-1 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">
                         EMERGENCY
                       </span>
@@ -535,40 +563,40 @@ const VisitsTable = ({ visits, loading, currentPage, totalPages, totalCount, onP
                   {/* Medications & Treatments */}
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="max-w-xs">
-                      {/* Debug button (optional) */}
+                      {/* Debug button - shows both original and transformed data */}
                       <button 
-                        onClick={() => debugVisitData(visit)}
+                        onClick={() => {
+                          console.log('Original visit:', originalVisit);
+                          console.log('Transformed visit:', visit);
+                          console.log('Medications:', medications);
+                          console.log('Treatments:', treatments);
+                        }}
                         className="text-xs text-gray-400 hover:text-gray-600 mb-1"
                       >
-                        Debug
+                        Debug Data
                       </button>
                       
-                      {/* Render medications safely */}
-                      {renderMedicationsOrTreatments(safeMedications, 'medications')}
+                      {/* Render medications */}
+                      {renderMedicationsOrTreatments(medications, 'medications')}
                       
-                      {/* Render treatments safely */}
-                      {renderMedicationsOrTreatments(safeTreatments, 'treatments')}
+                      {/* Render treatments */}
+                      {renderMedicationsOrTreatments(treatments, 'treatments')}
                       
                       {/* Show if none */}
-                      {safeMedications.length === 0 && safeTreatments.length === 0 && (
+                      {medications.length === 0 && treatments.length === 0 && (
                         <span className="text-xs text-gray-400 italic">None</span>
                       )}
                     </div>
                   </td>
                   
-                  {/* Actions - Using reusable button components */}
+                  {/* Actions */}
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      {/* View button - Use ViewDetailsButton component */}
                       <ViewVisitButton id={visit.id} />
-                      
-                      {/* Edit button - Use EditButton component */}
                       <EditButton 
-                        onClick={() => navigate(`/visits/${visit.id}/edit`)} // Update this to your edit route
+                        onClick={() => navigate(`/visits/${visit.id}/edit`)}
                         title="Edit Visit"
                       />
-                      
-                      {/* Quick action button example */}
                       <IconButton
                         onClick={() => console.log('Quick action for visit:', visit.id)}
                         title="Quick Action"
